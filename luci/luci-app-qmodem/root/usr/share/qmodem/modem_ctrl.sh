@@ -23,6 +23,9 @@ case $vendor in
     "sierra")
         . /usr/share/qmodem/vendor/sierra.sh
         ;;
+    "simcom")
+        . /usr/share/qmodem/vendor/simcom.sh
+        ;;
     *)
         . /usr/share/qmodem/generic.sh
         ;;
@@ -55,13 +58,14 @@ get_sms(){
     current_time=$(date +%s)
     file_time=$(stat -t $cache_file | awk '{print $14}')
     [ -z "$file_time" ] && file_time=0
+    get_sms_capabilities
     if [ ! -f $cache_file ] || [ $(($current_time - $file_time)) -gt $cache_timeout ]; then
         touch $cache_file
         #sms_tool_q -d $at_port -j recv > $cache_file
         tom_modem -d $at_port -o r > $cache_file
-        cat $cache_file
+        echo $(cat $cache_file ; json_dump) | jq -s 'add'
     else
-        cat $cache_file
+        echo $(cat $cache_file ; json_dump) | jq -s 'add'
     fi
 }
 
@@ -169,6 +173,9 @@ case $method in
         ;;
     "set_neighborcell")
         set_neighborcell $3
+        ;;
+    "set_sms_storage")
+        set_sms_storage $3
         ;;
     "base_info")
         cache_file="/tmp/cache_$1_$2"
