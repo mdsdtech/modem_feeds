@@ -1,4 +1,5 @@
-{ "modem_support": {
+{
+    "modem_support": {
         "usb": {
             "em05": {
                 "manufacturer_id": "2c7c",
@@ -68,6 +69,36 @@
                 ]
             },
             "rm500q-cn": {
+                "manufacturer_id": "2c7c",
+                "manufacturer": "quectel",
+                "platform": "qualcomm",
+                "data_interface": "usb",
+                "define_connect": "1",
+                "modes": [
+                    "qmi",
+                    "gobinet",
+                    "ecm",
+                    "mbim",
+                    "rndis",
+                    "ncm"
+                ]
+            },
+            "rm510q-gl": {
+                "manufacturer_id": "2c7c",
+                "manufacturer": "quectel",
+                "platform": "qualcomm",
+                "data_interface": "usb",
+                "define_connect": "1",
+                "modes": [
+                    "qmi",
+                    "gobinet",
+                    "ecm",
+                    "mbim",
+                    "rndis",
+                    "ncm"
+                ]
+            },
+            "rm510q-glha": {
                 "manufacturer_id": "2c7c",
                 "manufacturer": "quectel",
                 "platform": "qualcomm",
@@ -340,6 +371,18 @@
                     "ncm"
                 ]
             },
+            "nl668": {
+                "manufacturer_id": "1508",
+                "manufacturer": "fibocom",
+                "platform": "lte",
+                "data_interface": "usb",
+                "define_connect": "1",
+                "modes": [
+                    "ecm",
+                    "rndis",
+                    "ncm"
+                ]
+            },
             "nl678": {
                 "manufacturer_id": "2cb7",
                 "manufacturer": "fibocom",
@@ -445,6 +488,28 @@
                     "ecm",
                     "rndis",
                     "ncm"
+                ]
+            },
+            "em9190": {
+                "manufacturer_id": "1199",
+                "manufacturer": "sierra",
+                "platform": "qualcomm",
+                "data_interface": "usb",
+                "define_connect": "1",
+                "modes": [
+                    "mbim",
+                    "rmnet"
+                ]
+            },
+            "simcom_d8200g": {
+                "manufacturer_id": "1a0e",
+                "manufacturer": "simcom",
+                "platform": "qualcomm",
+                "data_interface": "usb",
+                "define_connect": "1",
+                "modes": [
+                    "qmi",
+                    "rndis"
                 ]
             }
         },
@@ -730,6 +795,17 @@
                         "4d57",
                         "4d58",
                         "4d59"
+                    ]
+                }
+            },
+            "simcom": {
+                "qualcomm": {
+                    "vendor_id": [
+                        "1a0e"
+                    ],
+                    "product_id": [
+                        "9001",
+                        "9011"
                     ]
                 }
             }

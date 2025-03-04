@@ -11,6 +11,7 @@ at()
 	tom_modem -d $at_port -o a -c "$atcmd"
 }
 
+
 fastat()
 {
     local at_port=$1
@@ -62,6 +63,7 @@ update_sim_slot()
 			#电平高表示SIM卡在卡槽1，电平低表示SIM卡在卡槽2
 			debug "update_sim_slot:sim_slot=$sim_slot"
 			;;
+		ailf,gs2410|\
 		huasifei,ws3006)
 			sim_pin="/sys/class/gpio/dual_sim/value"
 			#电平高则都在卡槽1，电平低则需要使用at查询
@@ -110,7 +112,23 @@ at_get_slot()
 				;;
 			esac
 			;;
-			
+		"simcom")
+			at_res=$(at $at_port AT+SMSIMCFG? | grep "+SMSIMCFG:" | awk -F',' '{print $2}' | sed 's/\r//g')
+			case $at_res in
+				"1")
+					sim_slot="1"
+					;;
+				"2")
+					sim_slot="2"
+					;;
+				*)
+					sim_slot="1"
+					;;
+			*)
+				sim_slot="1"
+				;;
+			esac
+			;;
 		*)
 			at_q_res=$(at $at_port AT+QSIMDET? |grep +QSIMDET: |awk -F: '{print $2}')
 			at_f_res=$(at $at_port AT+GTDUALSIM? |grep +GTDUALSIM: |awk -F: '{print $2}')

@@ -148,6 +148,9 @@ update_config()
     config_get define_connect $modem_config define_connect
     config_get ra_master $modem_config ra_master
     config_get extend_prefix $modem_config extend_prefix
+    config_get en_bridge $modem_config en_bridge
+    config_get do_not_add_dns $modem_config do_not_add_dns
+    config_get dns_list $modem_config dns_list
     config_get global_dial main enable_dial
     # config_get ethernet_5g u$modem_config ethernet 转往口获取命令更新，待测试
     config_foreach get_associate_ethernet_by_path modem-slot
@@ -271,11 +274,31 @@ check_ip()
                         ;;
                 esac
                 ;;
+            "simcom")
+                case $platform in
+                    "qualcomm")
+                        check_ip_command="AT+CGPADDR=6"
+                        ;;
+                esac
+                ;;
         esac
         ipaddr=$(at "$at_port" "$check_ip_command" |grep +CGPADDR:)
         if [ -n "$ipaddr" ];then
+            if [ $mtk -eq 1 ] && echo "$ipv4_config" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+                if [ "$pdp_type" = "IPv4v6" ];then
+                    if ! ping -c 2 -w 5 2400:3200::1 > /dev/null 2>&1; then
+                        m_debug "ipv6 is down,try to restart"
+                        ifdown "$interface"V6 && sleep 2 && ifup "$interface"V6
+                    fi
+                fi
+            fi
             ipv6=$(echo $ipaddr | grep -oE "\b([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}\b")
             ipv4=$(echo $ipaddr | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b")
+            if [ "$manufacturer" = "simcom" ];then
+                ipv4=$(echo $ipaddr | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" | grep -v "0\.0\.0\.0" | head -n 1)
+                ipaddr=$(echo $ipaddr | sed 's/\./:/g' | sed 's/+CGPADDR: //g' | sed 's/'$ipv4',//g')
+                ipv6=$(echo $ipaddr | grep -oE "\b([0-9a-fA-F]{0,4}.){2,7}[0-9a-fA-F]{0,4}\b")
+            fi
             disallow_ipv4="0.0.0.0"
             #remove the disallow ip
             if [ "$ipv4" == *"$disallow_ipv4"* ];then
@@ -374,12 +397,16 @@ set_if()
             uci set network.${interface_name}.modem_config="${modem_config}"
             uci set network.${interface_name}.proto="${proto}"
             uci set network.${interface_name}.defaultroute='1'
-            uci set network.${interface_name}.peerdns='0'
             uci set network.${interface_name}.metric="${metric}"
             uci del network.${interface_name}.dns
-            uci add_list network.${interface_name}.dns='114.114.114.114'
-            uci add_list network.${interface_name}.dns='119.29.29.29'
-            uci add_list network.${interface_name}.dns='8.8.8.8'
+            if [ -n "$dns_list" ];then
+                uci set network.${interface_name}.peerdns='0'
+                for dns in $dns_list;do
+                    uci add_list network.${interface_name}.dns="${dns}"
+                done
+            else
+                uci del network.${interface_name}.peerdns
+            fi
             local num=$(uci show firewall | grep "name='wan'" | wc -l)
             local wwan_num=$(uci -q get firewall.@zone[$num].network | grep -w "${interface_name}" | wc -l)
             if [ "$wwan_num" = "0" ]; then
@@ -539,7 +566,7 @@ flush_ip_cb()
 
 dial(){
     update_config
-    m_debug "modem_path=$modem_path,driver=$driver,interface=$interface_name,at_port=$at_port,using_sim_slot:$sim_slot"
+    m_debug "modem_path=$modem_path,driver=$driver,interface=$interface_name,at_port=$at_port,using_sim_slot:$sim_slot,dns_list:$dns_list"
     while [ "$dial_prepare" != 1 ] ; do
         sleep 5
         update_config
@@ -673,13 +700,18 @@ qmi_dial()
     if [[ "$modem_netcard" = "rmnet"* ]];then
         qmi_if=$(echo "$modem_netcard" | cut -d. -f1)
     fi
-
 		cmd_line="${cmd_line} -i ${qmi_if}"
 	fi
+    if [ "$en_bridge" = "1" ];then
+        cmd_line="${cmd_line} -b"
+    fi
+    if [ "$do_not_add_dns" = "1" ];then
+        cmd_line="${cmd_line} -D"
+    fi
     if [ -e "/usr/bin/quectel-CM-M" ];then
         [ -n "$metric" ] && cmd_line="$cmd_line -d -M $metric"
     else
-        [ -n "$metric" ] && cmd_line="$cmd_line -d"
+        [ -n "$metric" ] && cmd_line="$cmd_line"
     fi
     cmd_line="$cmd_line -f $log_file"
     m_debug "dialing $cmd_line"
@@ -740,16 +772,34 @@ at_dial()
                     cgdcont_command="AT+CGDCONT=1,\"$pdp_type\",\"$apn\""
                     ;;
                 "mediatek")
+                    mtk=1
+                    if [ "$apn" = "auto" ];then
+                        apn="cbnet"
+                    fi
                     at_command="AT+CGACT=1,3"
                     cgdcont_command="AT+CGDCONT=3,\"$pdp_type\",\"$apn\""
                     ;;
             esac
             ;;
-            
+        "simcom")
+            case $platform in
+                "qualcomm")
+                    local cnmp=$(at ${at_port} "AT+CNMP?" | grep "+CNMP:" | sed 's/+CNMP: //g' | sed 's/\r//g')
+                    at_command="AT+CNMP=$cnmp;+CNWINFO=1"
+                    cgdcont_command="AT+CGDCONT=1,\"IPV4V6\",\"$apn\""
+                    ;;
+            esac
+            ;;
     esac
     m_debug "dialing vendor:$manufacturer;platform:$platform; $cgdcont_command ; $at_command"
     at "${at_port}" "${cgdcont_command}"
+    if [ $mtk -eq 1 ];then
+        sleep 3
+    fi
     at "$at_port" "$at_command"
+    if [ $mtk -eq 1 ];then
+        sleep 3
+    fi
 }
 
 ip_change_fm350()
@@ -920,7 +970,7 @@ at_dial_monitor()
             fi
             sleep 10
         else
-        #检测ipv4是否变化
+            #检测ipv4是否变化
             sleep 15
             if [ "$ipv4" != "$ipv4_cache" ];then
                 handle_ip_change

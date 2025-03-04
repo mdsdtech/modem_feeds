@@ -132,12 +132,13 @@ int tty_read_keyword(FILE *fdi, char *output, int len, char *key_word, int soft_
     time_t start_time = time(NULL);
     int exitcode = TIMEOUT_WAITING_NEWLINE;
     while (difftime(time(NULL), start_time) < soft_timeout)
-    {
+    {      
+        memset(tmp, 0, LINE_BUF);
         if (fgets(tmp, LINE_BUF, fdi))
         {
             read_flag = 1;
             dbg_msg("%s", tmp);
-            if (output != NULL)
+            if (output != NULL) 
                 msg_len += snprintf(output + msg_len, len - msg_len, "%s", tmp);
 
             if (strncmp(tmp, "OK", 2) == 0 ||
@@ -176,13 +177,27 @@ int tty_read_keyword(FILE *fdi, char *output, int len, char *key_word, int soft_
             }
         }
 #endif
-        usleep(1000);
+        usleep(10000);
     }
     if (read_flag == 0)
     {
         exitcode = COMM_ERROR;
     }
     return exitcode;
+}
+
+int tty_write_raw(FILE *fdo, char *input)
+{
+    int ret;
+    ret = fputs(input, fdo);
+    fflush(fdo);
+    usleep(100);
+    if (ret < 0)
+    {
+        err_msg("Error writing to tty %d" , ret);
+        return COMM_ERROR;
+    }
+    return SUCCESS;
 }
 
 int tty_write(FILE *fdo, char *input)
@@ -197,14 +212,7 @@ int tty_write(FILE *fdo, char *input)
         return COMM_ERROR;
     }
     snprintf(cmd_line, cmd_len, "%s\r\n", input);
-    ret = fputs(cmd_line, fdo);
+    ret =  tty_write_raw(fdo, cmd_line);
     free(cmd_line);
-    fflush(fdo);
-    usleep(100);
-    if (ret < 0)
-    {
-        err_msg("Error writing to tty %d" , ret);
-        return COMM_ERROR;
-    }
-    return SUCCESS;
+    return ret;
 }

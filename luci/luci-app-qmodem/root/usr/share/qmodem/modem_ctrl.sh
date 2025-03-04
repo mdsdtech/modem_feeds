@@ -15,10 +15,16 @@ modem_slot=$(basename $modem_path)
 
 case $vendor in
     "quectel")
-        . /usr/share/qmodem/quectel.sh
+        . /usr/share/qmodem/vendor/quectel.sh
         ;;
     "fibocom")
-        . /usr/share/qmodem/fibocom.sh
+        . /usr/share/qmodem/vendor/fibocom.sh
+        ;;
+    "sierra")
+        . /usr/share/qmodem/vendor/sierra.sh
+        ;;
+    "simcom")
+        . /usr/share/qmodem/vendor/simcom.sh
         ;;
     *)
         . /usr/share/qmodem/generic.sh
@@ -52,13 +58,14 @@ get_sms(){
     current_time=$(date +%s)
     file_time=$(stat -t $cache_file | awk '{print $14}')
     [ -z "$file_time" ] && file_time=0
+    get_sms_capabilities
     if [ ! -f $cache_file ] || [ $(($current_time - $file_time)) -gt $cache_timeout ]; then
         touch $cache_file
         #sms_tool_q -d $at_port -j recv > $cache_file
         tom_modem -d $at_port -o r > $cache_file
-        cat $cache_file
+        echo $(cat $cache_file ; json_dump) | jq -s 'add'
     else
-        cat $cache_file
+        echo $(cat $cache_file ; json_dump) | jq -s 'add'
     fi
 }
 
@@ -167,6 +174,9 @@ case $method in
     "set_neighborcell")
         set_neighborcell $3
         ;;
+    "set_sms_storage")
+        set_sms_storage $3
+        ;;
     "base_info")
         cache_file="/tmp/cache_$1_$2"
         try_cache 10 $cache_file base_info
@@ -254,6 +264,14 @@ case $method in
         done
         json_close_object
         rm -rf /tmp/cache_sms_$2
+        ;;
+    "get_disabled_features")
+        json_add_array disabled_features
+        #从vendor文件中读取对vendor禁用的功能
+        vendor_get_disabled_features
+        get_modem_disabled_features
+        get_global_disabled_features
+        json_close_array
         ;;
 esac
 json_dump
