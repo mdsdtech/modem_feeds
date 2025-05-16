@@ -382,6 +382,25 @@
                     "ncm"
                 ]
             },
+            "rm551e-gl": {
+                "manufacturer_id": "2c7c",
+                "manufacturer": "quectel",
+                "platform": "qualcomm",
+                "data_interface": "usb",
+                "define_connect": "1",
+                "wcdma_band": "1/2/4/5/8/19",
+                "lte_band": "1/2/3/4/5/7/8/12/13/14/17/18/19/20/25/26/28/29/30/32/34/38/39/40/41/42/43/46/48/66/71",
+                "nsa_band": "1/2/3/5/7/8/12/13/14/18/20/25/26/28/29/30/38/40/41/48/66/70/71/75/76/77/78/79",
+                "sa_band": "1/2/3/5/7/8/12/13/14/18/20/25/26/28/29/30/38/40/41/48/66/70/71/75/76/77/78/79",
+                "modes": [
+                    "qmi",
+                    "gobinet",
+                    "ecm",
+                    "mbim",
+                    "rndis",
+                    "ncm"
+                ]
+            },
             "rg501q-eu": {
                 "manufacturer_id": "2c7c",
                 "manufacturer": "quectel",
@@ -557,6 +576,21 @@
                 ]
             },
             "fm160-na": {
+                "manufacturer_id": "2cb7",
+                "manufacturer": "fibocom",
+                "platform": "qualcomm",
+                "data_interface": "usb",
+                "define_connect": "1",
+                "modes": [
+                    "qmi",
+                    "gobinet",
+                    "ecm",
+                    "mbim",
+                    "rndis",
+                    "ncm"
+                ]
+            },
+            "fm190w-gl": {
                 "manufacturer_id": "2cb7",
                 "manufacturer": "fibocom",
                 "platform": "qualcomm",
@@ -946,6 +980,21 @@
                     "mbim"
                 ]
             },
+            "rm551e-gl": {
+                "manufacturer": "quectel",
+                "platform": "qualcomm",
+                "data_interface": "pcie",
+                "define_connect": "1",
+                "wcdma_band": "1/2/4/5/8/19",
+                "lte_band": "1/2/3/4/5/7/8/12/13/14/17/18/19/20/25/26/28/29/30/32/34/38/39/40/41/42/43/46/48/66/71",
+                "nsa_band": "1/2/3/5/7/8/12/13/14/18/20/25/26/28/29/30/38/40/41/48/66/70/71/75/76/77/78/79",
+                "sa_band": "1/2/3/5/7/8/12/13/14/18/20/25/26/28/29/30/38/40/41/48/66/70/71/75/76/77/78/79",
+                "modes": [
+                    "qmi",
+                    "gobinet",
+                    "mbim"
+                ]
+            },
             "rg520n-eu": {
                 "manufacturer": "quectel",
                 "platform": "qualcomm",
@@ -1037,6 +1086,15 @@
                 "modes": [
                     "qmi",
                     "mbim"
+                ]
+            },
+            "fm190w-gl": {
+                "manufacturer": "fibocom",
+                "platform": "qualcomm",
+                "data_interface": "pcie",
+                "define_connect": "1",
+                "modes": [
+                    "qmi"
                 ]
             },
             "em9190": {
