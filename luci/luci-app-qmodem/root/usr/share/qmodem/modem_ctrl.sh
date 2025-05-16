@@ -3,33 +3,26 @@ source /usr/share/libubox/jshn.sh
 method=$1
 config_section=$2
 at_port=$(uci get qmodem.$config_section.at_port)
-sms_at_port=$(uci get qmodem.$config_section.sms_at_port)
+uci -q get qmodem.$config_section.sms_at_port >/dev/null && sms_at_port=$(uci get qmodem.$config_section.sms_at_port)
 vendor=$(uci get qmodem.$config_section.manufacturer)
 platform=$(uci get qmodem.$config_section.platform)
 define_connect=$(uci get qmodem.$config_section.define_connect)
 modem_path=$(uci get qmodem.$config_section.path)
 modem_slot=$(basename $modem_path)
+
 [ -z "$define_connect" ] && {
     define_connect="1"
 }
 
-case $vendor in
-    "quectel")
-        . /usr/share/qmodem/vendor/quectel.sh
-        ;;
-    "fibocom")
-        . /usr/share/qmodem/vendor/fibocom.sh
-        ;;
-    "sierra")
-        . /usr/share/qmodem/vendor/sierra.sh
-        ;;
-    "simcom")
-        . /usr/share/qmodem/vendor/simcom.sh
-        ;;
-    *)
-        . /usr/share/qmodem/generic.sh
-        ;;
-esac
+#please update dynamic_load.json to add new vendor
+vendor_script_prefix="/usr/share/qmodem/vendor"
+dynamic_load_json="$vendor_script_prefix/dynamic_load.json"
+vendor_file="${vendor_script_prefix}/`jq -r --arg vendor $vendor '.[$vendor]' $dynamic_load_json`"
+if [ -z "$vendor" ] || [ ! -f "$vendor_file" ]; then
+    logger -t modem_ctrl "vendor $vendor not support"
+    . /usr/share/qmodem/generic.sh
+fi
+. $vendor_file
 
 try_cache() {
     cache_timeout=$1
@@ -74,7 +67,8 @@ get_at_cfg(){
     duns=$(ls /dev/mhi_DUN*)
     ttys=$(ls /dev/ttyUSB*)
     ttyacms=$(ls /dev/ttyACM*)
-    all_ttys="$duns $ttys $ttyacms"
+    wwanNatN=$(ls /dev/wwan* |grep -E wwan[0-9]at[0-9])
+    all_ttys="$duns $ttys $ttyacms $wwanNatN"
     json_add_array other_ttys
     for tty in $all_ttys; do
         [ -n "$tty" ] && json_add_string "" "$tty"
@@ -117,16 +111,62 @@ json_init
 json_add_object result
 json_close_object
 case $method in
-    "get_at_cfg")
-        get_at_cfg
-        exit
+    "base_info")
+        cache_file="/tmp/cache_$1_$2"
+        try_cache 10 $cache_file base_info
         ;;
-
+    "cell_info")
+        cache_file="/tmp/cache_$1_$2"
+        try_cache 10 $cache_file cell_info
+        ;;
     "clear_dial_log")
         json_select result
         log_file="/var/run/qmodem/${config_section}_dir/dial_log"
         [ -f $log_file ] && echo "" > $log_file && json_add_string status "1" || json_add_string status "0"
         json_close_object
+        ;;
+    "delete_sms")
+        json_select result
+        index=$3
+        [ -n "$sms_at_port" ] && at_port=$sms_at_port
+        for i in $index; do
+            tom_modem -d $at_port -o d -i $i
+            touch /tmp/cache_sms_$2
+            if [ "$?" == 0 ]; then
+                json_add_string status "1"
+                json_add_string "index$i" "tom_modem -d $at_port -o d -i $i"
+            else
+                json_add_string status "0"
+            fi
+        done
+        json_close_object
+        rm -rf /tmp/cache_sms_$2
+        ;;
+    "do_reboot")
+        reboot_method=$(echo $3 |jq -r '.method')
+        echo $3 > /tmp/555/reboot
+        case $reboot_method in
+            "hard")
+                hard_reboot
+                ;;
+            "soft")
+                soft_reboot
+                ;;
+        esac
+        ;;
+    "get_at_cfg")
+        get_at_cfg
+        exit
+        ;;
+    "get_copyright")
+        _copyright
+        ;;
+    "get_disabled_features")
+        json_add_array disabled_features
+        vendor_get_disabled_features
+        get_modem_disabled_features
+        get_global_disabled_features
+        json_close_array
         ;;
     "get_dns")
         get_dns
@@ -134,29 +174,33 @@ case $method in
     "get_imei")
         get_imei
         ;;
-    "set_imei")
-        set_imei $3
+    "get_lockband")
+        get_lockband
         ;;
     "get_mode")
         get_mode
         ;;
-    "set_mode")
-        set_mode $3
+    "get_neighborcell")
+        get_neighborcell
         ;;
     "get_network_prefer")
         get_network_prefer
         ;;
-    "set_network_prefer")
-        set_network_prefer $3
+    "get_reboot_caps")
+        get_reboot_caps
+        exit
         ;;
-    "get_lockband")
-        get_lockband
+    "get_sms")
+        get_sms 10 /tmp/cache_sms_$2
+        exit
         ;;
-    "set_lockband")
-        set_lockband $3
+    "info")
+        cache_file="/tmp/cache_$1_$2"
+        try_cache 10 $cache_file get_info
         ;;
-    "get_neighborcell")
-        get_neighborcell
+    "network_info")
+        cache_file="/tmp/cache_$1_$2"
+        try_cache 10 $cache_file network_info
         ;;
     "send_at")
         cmd=$(echo "$3" | jq -r '.at')
@@ -171,51 +215,18 @@ case $method in
             json_add_string status "0"
         fi
         ;;
-    "set_neighborcell")
-        set_neighborcell $3
-        ;;
-    "set_sms_storage")
-        set_sms_storage $3
-        ;;
-    "base_info")
-        cache_file="/tmp/cache_$1_$2"
-        try_cache 10 $cache_file base_info
-        ;;
-    "sim_info")
-        cache_file="/tmp/cache_$1_$2"
-        try_cache 10 $cache_file sim_info
-        ;;
-    "cell_info")
-        cache_file="/tmp/cache_$1_$2"
-        try_cache 10 $cache_file cell_info
-        ;;
-    "network_info")
-        cache_file="/tmp/cache_$1_$2"
-        try_cache 10 $cache_file network_info
-        ;;
-    "info")
-        cache_file="/tmp/cache_$1_$2"
-        try_cache 10 $cache_file get_info
-        ;;
-    "get_sms")
-        get_sms 10 /tmp/cache_sms_$2
-        exit
-        ;;
-    "get_reboot_caps")
-        get_reboot_caps
-        exit
-        ;;
-    "do_reboot")
-        reboot_method=$(echo $3 |jq -r '.method')
-        echo $3 > /tmp/555/reboot
-        case $reboot_method in
-            "hard")
-                hard_reboot
-                ;;
-            "soft")
-                soft_reboot
-                ;;
-        esac
+    "send_raw_pdu")
+        cmd=$3
+        [ -n "$sms_at_port" ] && at_port=$sms_at_port
+        res=$(tom_modem -d $at_port -o s -p "$cmd")
+        json_select result
+        if [ "$?" == 0 ]; then
+            json_add_string status "1"
+            json_add_string cmd "tom_modem -d $at_port -o s -p \"$cmd\""
+            json_add_string "res" "$res"
+        else
+            json_add_string status "0"
+        fi
         ;;
     "send_sms")
         cmd_json=$3
@@ -233,45 +244,27 @@ case $method in
         fi
         json_close_object
         ;;
-    "send_raw_pdu")
-        cmd=$3
-        [ -n "$sms_at_port" ] && at_port=$sms_at_port
-        #res=$(sms_tool_q -d $at_port send_raw_pdu "$cmd" )
-        res=$(tom_modem -d $at_port -o s -p "$cmd")
-        json_select result
-        if [ "$?" == 0 ]; then
-            json_add_string status "1"
-            json_add_string cmd "tom_modem -d $at_port -o s -p \"$cmd\""
-            json_add_string "res" "$res"
-        else
-            json_add_string status "0"
-        fi
+    "set_imei")
+        set_imei $3
         ;;
-    "delete_sms")
-        json_select result
-        index=$3
-        [ -n "$sms_at_port" ] && at_port=$sms_at_port
-        for i in $index; do
-            # sms_tool_q -d $at_port delete $i > /dev/null
-            tom_modem -d $at_port -o d -i $i
-            touch /tmp/cache_sms_$2
-            if [ "$?" == 0 ]; then
-                json_add_string status "1"
-                json_add_string "index$i" "tom_modem -d $at_port -o d -i $i"
-            else
-                json_add_string status "0"
-            fi
-        done
-        json_close_object
-        rm -rf /tmp/cache_sms_$2
+    "set_lockband")
+        set_lockband $3
         ;;
-    "get_disabled_features")
-        json_add_array disabled_features
-        #从vendor文件中读取对vendor禁用的功能
-        vendor_get_disabled_features
-        get_modem_disabled_features
-        get_global_disabled_features
-        json_close_array
+    "set_mode")
+        set_mode $3
+        ;;
+    "set_neighborcell")
+        set_neighborcell $3
+        ;;
+    "set_network_prefer")
+        set_network_prefer $3
+        ;;
+    "set_sms_storage")
+        set_sms_storage $3
+        ;;
+    "sim_info")
+        cache_file="/tmp/cache_$1_$2"
+        try_cache 10 $cache_file sim_info
         ;;
 esac
 json_dump

@@ -69,6 +69,28 @@ add_bar_info_entry()
     json_close_object
 }
 
+add_speed_entry()
+{
+    rate=$1
+    type=$2
+    if [ -z "$rate" ]; then
+        return
+    fi
+    rate=`rate_convert $rate`
+    case $type in
+        "rx")
+            add_plain_info_entry "Rx Rate" "$rate" "Transmit Rate"
+            ;;
+        "tx")
+            add_plain_info_entry "Tx Rate" "$rate" "Receive Rate"
+            ;;
+        *)
+            return
+            ;;
+    esac
+
+}
+
 add_avalible_band_entry()
 {
     band_id=$1
@@ -80,6 +102,52 @@ add_avalible_band_entry()
     json_close_object
 }
 
+get_driver()
+{
+    for i in $(find $modem_path -name driver);do
+        lsfile=$(ls -l $i)
+        type=${lsfile:0:1}
+        if [ "$type" == "l" ];then
+            link=$(basename $(ls -l $i | awk '{print $11}'))
+            case $link in
+                "mtk_t7xx")
+                    mode="mtk_pcie"
+                    break
+                    ;;
+                "qmi_wwan"*) 
+                    mode="qmi"
+                    break
+                ;;
+                "cdc_mbim")
+                    mode="mbim"
+                    break
+                    ;;
+                "cdc_ncm")
+                    mode="ncm"
+                    break
+                    ;;
+                "cdc_ether")
+                    mode="ecm"
+                    break
+                    ;;
+                "rndis_host")
+                    mode="rndis"
+                    break
+                    ;;
+                "mhi_netdev")
+                    mode="mhi"
+                    break
+                    ;;
+                *)
+                    if [ -z "$mode" ]; then
+                        mode="unknown"
+                    fi
+                ;;
+            esac
+        fi
+    done
+    echo $mode
+}
 
 get_dns()
 {
@@ -238,32 +306,45 @@ get_rat()
 #return raw data
 get_connect_status()
 {
-    #get active pdp context
-    at_cmd="AT+CGACT?"
-    expect="+CGACT:"
-    result=`at  $at_port $at_cmd | grep $expect|tr '\r' '\n'`
     connect_status="No"
-    for pdp_index in `echo  "$result" | tr -d "\r" | awk -F'[,:]' '$3 == 1 {print $2}'`; do
-        at_cmd="AT+CGPADDR=%s"
-        at_cmd=$(printf "$at_cmd" "$pdp_index")
-        expect="+CGPADDR:"
-        result=$(at  $at_port $at_cmd | grep $expect)
-        if [ -n "$result" ];then
-            ipv6=$(echo $result | grep -oE "\b([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}\b")
-            ipv4=$(echo $result | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b")
-            disallow_ipv4="0.0.0.0"
-            #remove the disallow ip
-            if [ "$ipv4" == "$disallow_ipv4" ];then
-                ipv4=""
-            fi
-        fi
-        if [ -n "$ipv4" ] || [ -n "$ipv6" ];then
+    driver=$(get_driver)
+    if [ "$driver" = "mtk_pcie" ]; then
+        mbim_port=$(echo "$at_port" | sed 's/at/mbim/g')
+        local config=$(umbim -d $mbim_port config)
+        local ipv4=$(echo "$config" | grep "ipv4address:" | awk '{print $2}' | cut -d'/' -f1)
+        local ipv6=$(echo "$config" | grep "ipv6address:" | awk '{print $2}' | cut -d'/' -f1)
+
+        disallow_ipv4="0.0.0.0"
+        if [ -n "$ipv4" ] && [ "$ipv4" != "$disallow_ipv4" ] || [ -n "$ipv6" ] && [ "$ipv6" != "::" ]; then
             connect_status="Yes"
-            break
-        else
-            connect_status="No"
         fi
-    done
+    else
+        at_cmd="AT+CGACT?"
+        expect="+CGACT:"
+        result=`at  $at_port $at_cmd | grep $expect|tr '\r' '\n'`
+        
+        for pdp_index in `echo  "$result" | tr -d "\r" | awk -F'[,:]' '$3 == 1 {print $2}'`; do
+            at_cmd="AT+CGPADDR=%s"
+            at_cmd=$(printf "$at_cmd" "$pdp_index")
+            expect="+CGPADDR:"
+            result=$(at  $at_port $at_cmd | grep $expect)
+            if [ -n "$result" ];then
+                ipv6=$(echo $result | grep -oE "\b([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}\b")
+                ipv4=$(echo $result | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b")
+                disallow_ipv4="0.0.0.0"
+                #remove the disallow ip
+                if [ "$ipv4" == "$disallow_ipv4" ];then
+                    ipv4=""
+                fi
+            fi
+            if [ -n "$ipv4" ] || [ -n "$ipv6" ];then
+                connect_status="Yes"
+                break
+            else
+                connect_status="No"
+            fi
+        done
+    fi
     add_plain_info_entry "connect_status" "$connect_status" "Connect Status"
 }
 
@@ -452,4 +533,13 @@ get_global_disabled_features()
 _add_disabled_features()
 {
     json_add_string "" "$1"
+}
+
+_copyright()
+{
+    json_add_object "copyright"
+    json_add_string "Vendor" "${_Vendor}"
+    json_add_string "Author" "${_Author}"
+    json_add_string "Maintainer" "${_Maintainer}"
+    json_close_object
 }

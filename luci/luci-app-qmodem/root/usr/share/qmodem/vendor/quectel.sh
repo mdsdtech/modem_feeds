@@ -1,5 +1,9 @@
 #!/bin/sh
-
+# Copyright (C) 2023 Siriling <siriling@qq.com>
+# Copyright (C) 2025 Fujr <fjrcn@outlook.com>
+_Vendor="quectel"
+_Author="Siriling,Fujr"
+_Maintainer="Fujr <fjrcn@outlook.com>"
 source /usr/share/qmodem/generic.sh
 debug_subject="quectel_ctrl"
 #return raw data
@@ -486,10 +490,8 @@ network_info()
     add_plain_info_entry "CQI DL" "$cqi_dl" "Channel Quality Indicator for Downlink"
     add_plain_info_entry "AMBR UL" "$ambr_ul" "Access Maximum Bit Rate for Uplink"
     add_plain_info_entry "AMBR DL" "$ambr_dl" "Access Maximum Bit Rate for Downlink"
-    rx_rate=$(rate_convert $rx_rate)
-    tx_rate=$(rate_convert $tx_rate)
-    add_plain_info_entry "Tx Rate" "$tx_rate" "Transmit Rate"
-    add_plain_info_entry "Rx Rate" "$rx_rate" "Receive Rate"
+    add_speed_entry rx $rx_rate
+    add_speed_entry tx $tx_rate
 }
 
 #获取频段
@@ -1689,4 +1691,3 @@ cell_info()
         ;;
     esac
 }
-

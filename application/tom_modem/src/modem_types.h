@@ -17,6 +17,7 @@
 #define DEBUG_S 'D'
 #define SMS_PDU_S 'p'
 #define SMS_INDEX_S 'i'
+#define GREEDY_READ_S 'g'
 
 #define AT_CMD_L "at_cmd"
 #define TTY_DEV_L "tty_dev"
@@ -30,6 +31,7 @@
 #define DEBUG_L "debug"
 #define SMS_PDU_L "sms_pdu"
 #define SMS_INDEX_L "sms_index"
+#define GREEDY_READ_L "greedy_read"
 
 //operations
 #define AT_OP_S 'a'
@@ -55,7 +57,7 @@
 #define SMS_BUF_SIZE 65536
 #define LINE_BUF 1024
 #define SMS_LIST_SIZE 128
-#define COMMON_BUF_SIZE 16384
+#define COMMON_BUF_SIZE 65536
 #define PHONE_NUMBER_SIZE 64
 #define SMS_TEXT_SIZE 256
 #define SMS_PDU_STR_SIZE 512
@@ -85,6 +87,7 @@ typedef struct _PROFILE {
     int debug;
     char *sms_pdu;
     int sms_index;
+    int greedy_read;
 } PROFILE_T;
 
 
@@ -108,6 +111,11 @@ typedef struct _SMS {
     char *sms_pdu;
 } SMS_T;
 
+typedef struct _AT_MESSAGE {
+    char *message;
+    int len;
+} AT_MESSAGE_T;
+
 enum ERROR_CODES {
     COMM_ERROR = -1,
     SUCCESS = 0,
@@ -116,6 +124,7 @@ enum ERROR_CODES {
     INVALID_PARAM,
     INVALID_HEX,
     UNKNOWN_ERROR,
+    BUFFER_OVERFLOW,
 };
 
 enum SMS_CHARSET {
@@ -135,7 +144,8 @@ enum OPTIONS {
     OPERATION,
     DEBUG,
     SMS_PDU,
-    SMS_INDEX
+    SMS_INDEX,
+    GREEDY_READ
 };
 
 enum OPERATIONS {
