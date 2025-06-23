@@ -295,7 +295,7 @@ scan_usb_slot_interfaces()
             ;;
             qmi_wwan*|\
             cdc_mbim|\
-            cdc_ncm|\
+            *cdc_ncm|\
             cdc_ether|\
             rndis_host)
                 net_path="$slot_path/$interface/net"
@@ -318,7 +318,7 @@ validate_at_port()
         [ ! -e "$dev_path" ] && continue
         res=$(fastat $dev_path "ATI")
         [ -z "$res" ] && continue
-        [[ "$res" != *"OK"* ]] && continue
+        !(echo "$res" | grep -qE 'OK') && continue
         valid_at_port="$at_port"
         [ -z "$valid_at_ports" ] && valid_at_ports="$valid_at_port" || valid_at_ports="$valid_at_ports $valid_at_port"
     done
@@ -334,6 +334,9 @@ match_config()
 
     #FM350-GL-00 5G Module
     [[ "$name" = *"fm350-gl"* ]] && name="fm350-gl"
+    
+    #FM190W-GL 5G Module
+    [[ "$name" = *"fm190w-gl"* ]] && name="fm190w-gl"
 
     #RM500U-CNV
     [[ "$name" = *"rm500u-cn"* ]] && name="rm500u-cn"
@@ -344,10 +347,18 @@ match_config()
 
     [[ "$name" = *"T99W373"* ]] && name="t99w373"
 
+    [[ "$name" = *"dp25-42843-47"* ]] && name="t99w640"
+
     [[ "$name" = *"SIM8380G"* ]] && name="SIM8380G-M2"
 
     #rg200u-cn
     [[ "$name" = *"rg200u-cn"* ]] && name="rg200u-cn"
+    
+    #nu313-m2
+    [[ "$name" = *"nu313-m2"* ]] && name="srm821"
+
+    #nari-m601
+    [[ "$name" = *"m601"* ]] && name="n510m"
 
     modem_config=$(echo $modem_support | jq '.modem_support."'$slot_type'"."'$name'"')
     [ "$modem_config" == "null"  ] && return
@@ -489,6 +500,7 @@ EOF
     for at_port in $at_ports; do
         uci add_list qmodem.$section_name.ports="/dev/$at_port"
     done
+    [ "$option_driver" == "1" ] && uci set qmodem.$section_name.option_driver="1"
     uci commit qmodem
     mkdir -p /var/run/qmodem/${section_name}_dir
     lock -u /tmp/lock/modem_add_$slot

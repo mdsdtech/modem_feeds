@@ -23,11 +23,6 @@ function set_imei(){
 function get_mode(){
     cfg=$(at $at_port "AT^SETMODE?")
     local mode_num=`echo -e "$cfg" | sed -n '2p' | sed 's/\r//g'`
-    
-    if [ -z "$mode_num" ]; then
-       echo "unknown"
-       return
-    fi
 
     case "$mode_num" in
         "0"|"2") mode="ecm" ;;
@@ -35,7 +30,7 @@ function get_mode(){
         "6") mode="rndis" ;;
         "7") mode="mbim" ;;
         "8") mode="ppp" ;;
-        *) mode="$mode_num" ;;
+        *) mode="rndis" ;;
     esac
     
     available_modes=$(uci -q get qmodem.$config_section.modes)
@@ -244,15 +239,12 @@ function base_info(){
 
 cell_info()
 {
-
-
     at_command="AT^MONSC"
     response=$(at $at_port $at_command | grep "\^MONSC:" | sed 's/\^MONSC: //')
     
     local rat=$(echo "$response" | awk -F',' '{print $1}')
-
     case $rat in
-        "NR")
+        "NR"|"NR-5GC")
             network_mode="NR5G-SA Mode"
             nr_mcc=$(echo "$response" | awk -F',' '{print $2}')
             nr_mnc=$(echo "$response" | awk -F',' '{print $3}')
@@ -634,31 +626,17 @@ for line in $data;do
         continue
         ;;
     *SINR*)
-        add_bar_info_entry "SINR" "$value" "$key" -23 40 dB
+        add_bar_info_entry "SINR" "$value" "$key" 0 30 dB
         ;;
     *RSRP*)
-        case $key in
-        *NR5G*)
-            add_bar_info_entry "NR5G RSRP" "$value" "$key" -187 -29 dBm
-            ;;
-        *)
-            add_bar_info_entry "RSRP" "$value" "$key" -140 -44 dBm
-            ;;
-        esac
+        add_bar_info_entry "RSRP" "$value" "$key" -140 -44 dBm
         ;;
     *RSRQ*)
-        case $key in
-        *NR5G*)
-            add_bar_info_entry "NR5G RSRQ" "$value" "$key" -43 20 dBm
-            ;;
-        *)
-            add_bar_info_entry "RSRQ" "$value" "$key" -20 20 dBm
-            ;;
-        esac
+        add_bar_info_entry "RSRQ" "$value" "$key" -19.5 -3 dB
         ;;
     *RSSI*)
-            add_bar_info_entry "RSSI" "$value" "$key" -140 -44 dBm
-            ;;
+        add_bar_info_entry "RSSI" "$value" "$key" -120 -20 dBm
+        ;;
     *)
         add_plain_info_entry $key $value $key
         ;;

@@ -44,11 +44,19 @@ get_mode()
                 *) mode="${mode_num}" ;;
             esac
         ;;
-        "unisoc"|"lte12"|"lte")
+        "lte12"|"lte")
             case "$mode_num" in
                 "2") mode="ecm" ;;
                 "3") mode="rndis" ;;
                 "2") mode="ncm" ;;
+                *) mode="${mode_num}" ;;
+            esac
+        ;;
+        "unisoc")
+            case "$mode_num" in
+                "2") mode="ecm" ;;
+                "3") mode="rndis" ;;
+                "1") mode="ncm" ;;
                 *) mode="${mode_num}" ;;
             esac
         ;;
@@ -73,11 +81,19 @@ set_mode()
 {
     local mode=$1
     case "$platform" in
-        "qualcomm"|"unisoc"|"lte12"|"lte")
+        "qualcomm"|"lte12"|"lte")
             case "$mode" in
                 "ecm") mode_num="2" ;;
                 "rndis") mode_num="3" ;;
                 "ncm") mode_num="2" ;;
+                *) mode_num="1" ;;
+            esac
+        ;;
+        "unisoc")
+            case "$mode" in
+                "ecm") mode_num="2" ;;
+                "rndis") mode_num="3" ;;
+                "ncm") mode_num="1" ;;
                 *) mode_num="1" ;;
             esac
         ;;
@@ -176,12 +192,30 @@ get_voltage()
 get_temperature()
 {   
     at_command="AT+TEMP"
-    local response=$(at ${at_port} ${at_command} | grep 'TEMP: "cpu0-0-usr"' | awk -F'"' '{print $4}')
+    local response
     local temp
-    if [ -n "$response" ]; then
-        temp="${response}$(printf "\xc2\xb0")C"
+    local degree_symbol=$(printf "\xc2\xb0")C 
+
+# 根据平台选择不同的AT命令并提取温度值
+if [ "$platform" = "unisoc" ]; then
+    response=$(at ${at_port} ${at_command} | grep 'TEMP: "soc-thmzone"' | awk -F'"' '{print $4}')
+else
+    response=$(at ${at_port} ${at_command} | grep 'TEMP: "cpu0-0-usr"' | awk -F'"' '{print $4}')
+ fi
+
+# 处理响应值
+if [ -n "$response" ]; then
+    if [ "$platform" = "unisoc" ]; then
+        # Unisoc平台需要将原始值除以1000并保留两位小数
+        temp_value=$(echo "scale=2; $response / 1000" | bc)
+        temp="${temp_value}${degree_symbol}"
     else
-        temp="NaN $(printf "\xc2\xb0")C"
+        # 其他平台直接使用原始值
+        temp="${response}${degree_symbol}"
+    fi
+else
+    # 无响应时显示NaN
+    temp="NaN ${degree_symbol}"
     fi
     add_plain_info_entry "temperature" "$temp" "Temperature"
 }
@@ -533,9 +567,9 @@ cell_info()
         add_plain_info_entry "TAC" "$nr_tac" "Tracking area code"
         add_plain_info_entry "Band" "$nr_band" "Band"
         add_plain_info_entry "DL Bandwidth" "$nr_dl_bandwidth" "DL Bandwidth"
-        add_bar_info_entry "RSRP" "$nr_rsrp" "Reference Signal Received Power" -187 -29 dBm
-        add_bar_info_entry "RSRQ" "$nr_rsrq" "Reference Signal Received Quality" -43 20 dBm
-        add_bar_info_entry "SINR" "$nr_sinr" "Signal to Interference plus Noise Ratio" -23 40 dB
+        add_bar_info_entry "RSRP" "$nr_rsrp" "Reference Signal Received Power" -140 -44 dBm
+        add_bar_info_entry "RSRQ" "$nr_rsrq" "Reference Signal Received Quality" -19.5 -3 dB
+        add_bar_info_entry "SINR" "$nr_sinr" "Signal to Interference plus Noise Ratio" 0 30 dB
         add_plain_info_entry "SCS" "$nr_scs" "SCS"
         ;;
     "EN-DC Mode")
@@ -550,8 +584,8 @@ cell_info()
         add_plain_info_entry "UL Bandwidth" "$endc_lte_ul_bandwidth" "UL Bandwidth"
         add_plain_info_entry "DL Bandwidth" "$endc_lte_dl_bandwidth" "DL Bandwidth"
         add_bar_info_entry "RSRP" "$endc_lte_rsrp" "Reference Signal Received Power" -140 -44 dBm
-        add_bar_info_entry "RSRQ" "$endc_lte_rsrq" "Reference Signal Received Quality" -20 20 dBm
-        add_bar_info_entry "SINR" "$endc_lte_sinr" "Signal to Interference plus Noise Ratio" -23 40 dB
+        add_bar_info_entry "RSRQ" "$endc_lte_rsrq" "Reference Signal Received Quality" -19.5 -3 dB
+        add_bar_info_entry "SINR" "$endc_lte_sinr" "Signal to Interference plus Noise Ratio" 0 30 dB
         add_plain_info_entry "TX Power" "$endc_lte_tx_power" "TX Power"
         if [ -n "$endc_nr_physical_cell_id" ] || [ -n "$endc_nr_band" ]; then
             add_plain_info_entry "NR5G-NSA" "NR5G-NSA" ""
@@ -560,9 +594,9 @@ cell_info()
             [ -n "$endc_nr_physical_cell_id" ] && add_plain_info_entry "Physical Cell ID" "$endc_nr_physical_cell_id" "Physical Cell ID"
             [ -n "$endc_nr_band" ] && add_plain_info_entry "Band" "$endc_nr_band" "Band"
             [ -n "$endc_nr_dl_bandwidth" ] && add_plain_info_entry "DL Bandwidth" "$endc_nr_dl_bandwidth" "DL Bandwidth"
-            [ -n "$endc_nr_rsrp" ] && add_bar_info_entry "RSRP" "$endc_nr_rsrp" "Reference Signal Received Power" -187 -29 dBm
-            [ -n "$endc_nr_rsrq" ] && add_bar_info_entry "RSRQ" "$endc_nr_rsrq" "Reference Signal Received Quality" -43 20 dBm
-            [ -n "$endc_nr_sinr" ] && add_bar_info_entry "SINR" "$endc_nr_sinr" "Signal to Interference plus Noise Ratio" -23 40 dB
+            [ -n "$endc_nr_rsrp" ] && add_bar_info_entry "RSRP" "$endc_nr_rsrp" "Reference Signal Received Power" -140 -44 dBm
+            [ -n "$endc_nr_rsrq" ] && add_bar_info_entry "RSRQ" "$endc_nr_rsrq" "Reference Signal Received Quality" -19.5 -3 dB
+            [ -n "$endc_nr_sinr" ] && add_bar_info_entry "SINR" "$endc_nr_sinr" "Signal to Interference plus Noise Ratio" 0 30 dB
             [ -n "$endc_nr_scs" ] && add_plain_info_entry "SCS" "$endc_nr_scs" "SCS"
         fi
         ;;
@@ -577,8 +611,8 @@ cell_info()
         add_plain_info_entry "UL Bandwidth" "$lte_ul_bandwidth" "UL Bandwidth"
         add_plain_info_entry "DL Bandwidth" "$lte_dl_bandwidth" "DL Bandwidth"
         add_bar_info_entry "RSRP" "$lte_rsrp" "Reference Signal Received Power" -140 -44 dBm
-        add_bar_info_entry "RSRQ" "$lte_rsrq" "Reference Signal Received Quality" -20 20 dBm
-        add_bar_info_entry "SINR" "$lte_sinr" "Signal to Interference plus Noise Ratio" -23 40 dB
+        add_bar_info_entry "RSRQ" "$lte_rsrq" "Reference Signal Received Quality" -19.5 -3 dB
+        add_bar_info_entry "SINR" "$lte_sinr" "Signal to Interference plus Noise Ratio" 0 30 dB
         [ -n "$lte_tx_power" ] && add_plain_info_entry "TX Power" "$lte_tx_power" "TX Power"
         ;;
     "WCDMA Mode")
