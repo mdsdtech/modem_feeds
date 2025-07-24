@@ -9,6 +9,7 @@ mh5000-31 | hisilicon |✔ usb(ecm) | ✘
 Model | Platform | USB  | PCIe 
 --- | --- | --- | ---
 em05 | lte |✔ usb(qmi,ecm,mbim,rndis) | ✘
+em05-cn | lte |✔ usb(qmi,ecm,mbim,rndis) | ✘
 ep06 | lte |✔ usb(qmi,ecm,mbim,rndis) | ✘
 em12 | lte |✔ usb(qmi,ecm,mbim,rndis) | ✘
 em120k | lte12 |✔ usb(qmi,ecm,mbim,rndis) | ✘
@@ -69,6 +70,11 @@ srm821 | unisoc |✔ usb(ecm,rndis,ncm) | ✘
 Model | Platform | USB  | PCIe 
 --- | --- | --- | ---
 em9190 | qualcomm |✔ usb(mbim,rmnet) | ✔ pcie(mbim,rmnet)
+
+# telit
+Model | Platform | USB  | PCIe 
+--- | --- | --- | ---
+fn990a40 | qualcomm |✔ usb(mbim,rndis,qmi,ecm) | ✔ pcie(mbim,qmi)
 
 # simcom
 Model | Platform | USB  | PCIe 
