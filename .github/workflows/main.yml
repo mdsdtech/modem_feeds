@@ -223,6 +223,7 @@ jobs:
           echo "CONFIG_LUCI_LANG_zh_Hans=y" >> .config
           cat ../qmodem/.github/workflows/openwrt_package.config >> .config
           make defconfig
+          make clean
           make download -j$(nproc) || true
 
       - name: Compile QModem

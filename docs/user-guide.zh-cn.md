@@ -109,7 +109,6 @@ opkg install luci-app-qmodem.ipk --force-depends
 | **接口类型** (`data_interface`)             | `List`    | 连接接口类型 (USB 或 PCIe)。                                |
 | **别名** (`alias`)                          | `Text`    | 模组的自定义、用户友好名称。                                |
 | **软重启** (`soft_reboot`)                  | `Flag`    | 启用模组的软重启，而不是完全断电重启。                      |
-| **V4/V6 连接检查** (`connect_check`)        | `Flag`    | 对于 AT 拨号模组，执行检查以确保已建立 IPv4/IPv6 连接。     |
 | **PDP 上下文索引** (`pdp_index`)       | `Integer` | 用于连接的 PDP 上下文索引 (默认为 1)。                      |
 | **制造商** (`manufacturer`)                 | `List`    | 模组的制造商 (例如，Quectel, Fibocom)。                     |
 | **平台** (`platform`)                       | `List`    | 模组的芯片组平台 (例如，SDX55, SDX62)。                     |

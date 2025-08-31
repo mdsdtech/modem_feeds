@@ -19,7 +19,7 @@ rg801 | hisilicon |✔ usb(ecm,rndis,ncm) | ✘
 rm500u-cn | unisoc |✔ usb(ecm,mbim,rndis,ncm) | ✘
 rm500u-ea | unisoc |✔ usb(ecm,mbim,rndis,ncm) | ✘
 rm500s-ce | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
-rm500q-cn | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
+rm500q-cn | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✘
 rm510q-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
 rm510q-glha | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✘
 rg500q-ea | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
@@ -31,6 +31,8 @@ rm505q-ae | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✘
 rm520n-cn | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✘
 rm520n-eu | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
 rm520n-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
+rm520f-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
+rm521f-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
 rm551e-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
 rg501q-eu | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
 rg520n-eu | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
@@ -55,6 +57,7 @@ fm150-ae | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,mbim
 fm160-cn | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✘
 fm160-na | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✘
 fm190w-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi)
+l610-eu | unisoc |✔ usb(ecm,rndis,ncm) | ✘
 nl668 | lte |✔ usb(ecm,rndis,ncm) | ✘
 nl678 | lte |✔ usb(qmi,ecm,rndis,ncm) | ✘
 

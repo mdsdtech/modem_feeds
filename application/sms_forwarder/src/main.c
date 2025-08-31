@@ -68,43 +68,111 @@ static int parse_config_file(const char *config_file, sms_forwarder_config_t *co
 
     // Initialize config structure
     memset(config, 0, sizeof(sms_forwarder_config_t));
-    config->poll_interval = 30; // default value
-    config->delete_after_forward = 0; // default value
 
-    // Parse configuration
-    json_object *obj;
-    const char *str_val;
-    
-    if (json_object_object_get_ex(root, "modem_port", &obj)) {
-        str_val = json_object_get_string(obj);
-        if (str_val) {
-            strncpy(config->modem_port, str_val, sizeof(config->modem_port) - 1);
-            config->modem_port[sizeof(config->modem_port) - 1] = '\0';
+    // Check if root is an array (new format) or object (old format)
+    if (json_object_is_type(root, json_type_array)) {
+        // New format: array of modem configurations
+        int array_len = json_object_array_length(root);
+        config->modem_count = (array_len > MAX_API_COUNT) ? MAX_API_COUNT : array_len;
+        
+        for (int i = 0; i < config->modem_count; i++) {
+            json_object *modem_obj = json_object_array_get_idx(root, i);
+            if (!modem_obj) continue;
+            
+            // Set defaults
+            config->modems[i].poll_interval = 30;
+            config->modems[i].delete_after_forward = 0;
+            config->modems[i].api_count = 0;
+            
+            // Parse modem_port
+            json_object *obj;
+            const char *str_val;
+            
+            if (json_object_object_get_ex(modem_obj, "modem_port", &obj)) {
+                str_val = json_object_get_string(obj);
+                if (str_val) {
+                    strncpy(config->modems[i].modem_port, str_val, sizeof(config->modems[i].modem_port) - 1);
+                    config->modems[i].modem_port[sizeof(config->modems[i].modem_port) - 1] = '\0';
+                }
+            }
+            
+            if (json_object_object_get_ex(modem_obj, "poll_interval", &obj)) {
+                config->modems[i].poll_interval = json_object_get_int(obj);
+            }
+            
+            if (json_object_object_get_ex(modem_obj, "delete_after_forward", &obj)) {
+                config->modems[i].delete_after_forward = json_object_get_boolean(obj);
+            }
+            
+            // Parse apis array
+            json_object *apis_array;
+            if (json_object_object_get_ex(modem_obj, "apis", &apis_array) && json_object_is_type(apis_array, json_type_array)) {
+                int api_array_len = json_object_array_length(apis_array);
+                config->modems[i].api_count = (api_array_len > MAX_API_COUNT) ? MAX_API_COUNT : api_array_len;
+                
+                for (int j = 0; j < config->modems[i].api_count; j++) {
+                    json_object *api_obj = json_object_array_get_idx(apis_array, j);
+                    if (!api_obj) continue;
+                    
+                    if (json_object_object_get_ex(api_obj, "api_type", &obj)) {
+                        str_val = json_object_get_string(obj);
+                        if (str_val) {
+                            strncpy(config->modems[i].apis[j].api_type, str_val, sizeof(config->modems[i].apis[j].api_type) - 1);
+                            config->modems[i].apis[j].api_type[sizeof(config->modems[i].apis[j].api_type) - 1] = '\0';
+                        }
+                    }
+                    
+                    if (json_object_object_get_ex(api_obj, "api_config", &obj)) {
+                        const char *api_config_str = json_object_to_json_string(obj);
+                        if (api_config_str) {
+                            strncpy(config->modems[i].apis[j].api_config, api_config_str, sizeof(config->modems[i].apis[j].api_config) - 1);
+                            config->modems[i].apis[j].api_config[sizeof(config->modems[i].apis[j].api_config) - 1] = '\0';
+                        }
+                    }
+                }
+            }
         }
-    }
-    
-    if (json_object_object_get_ex(root, "poll_interval", &obj)) {
-        config->poll_interval = json_object_get_int(obj);
-    }
-    
-    if (json_object_object_get_ex(root, "api_type", &obj)) {
-        str_val = json_object_get_string(obj);
-        if (str_val) {
-            strncpy(config->api_type, str_val, sizeof(config->api_type) - 1);
-            config->api_type[sizeof(config->api_type) - 1] = '\0';
+    } else {
+        // Old format: single modem configuration - convert to new format
+        config->modem_count = 1;
+        config->modems[0].poll_interval = 30;
+        config->modems[0].delete_after_forward = 0;
+        config->modems[0].api_count = 1;
+        
+        json_object *obj;
+        const char *str_val;
+        
+        if (json_object_object_get_ex(root, "modem_port", &obj)) {
+            str_val = json_object_get_string(obj);
+            if (str_val) {
+                strncpy(config->modems[0].modem_port, str_val, sizeof(config->modems[0].modem_port) - 1);
+                config->modems[0].modem_port[sizeof(config->modems[0].modem_port) - 1] = '\0';
+            }
         }
-    }
-    
-    if (json_object_object_get_ex(root, "api_config", &obj)) {
-        str_val = json_object_get_string(obj);
-        if (str_val) {
-            strncpy(config->api_config, str_val, sizeof(config->api_config) - 1);
-            config->api_config[sizeof(config->api_config) - 1] = '\0';
+        
+        if (json_object_object_get_ex(root, "poll_interval", &obj)) {
+            config->modems[0].poll_interval = json_object_get_int(obj);
         }
-    }
-    
-    if (json_object_object_get_ex(root, "delete_after_forward", &obj)) {
-        config->delete_after_forward = json_object_get_boolean(obj);
+        
+        if (json_object_object_get_ex(root, "api_type", &obj)) {
+            str_val = json_object_get_string(obj);
+            if (str_val) {
+                strncpy(config->modems[0].apis[0].api_type, str_val, sizeof(config->modems[0].apis[0].api_type) - 1);
+                config->modems[0].apis[0].api_type[sizeof(config->modems[0].apis[0].api_type) - 1] = '\0';
+            }
+        }
+        
+        if (json_object_object_get_ex(root, "api_config", &obj)) {
+            const char *api_config_str = json_object_to_json_string(obj);
+            if (api_config_str) {
+                strncpy(config->modems[0].apis[0].api_config, api_config_str, sizeof(config->modems[0].apis[0].api_config) - 1);
+                config->modems[0].apis[0].api_config[sizeof(config->modems[0].apis[0].api_config) - 1] = '\0';
+            }
+        }
+        
+        if (json_object_object_get_ex(root, "delete_after_forward", &obj)) {
+            config->modems[0].delete_after_forward = json_object_get_boolean(obj);
+        }
     }
 
     json_object_put(root);
@@ -262,69 +330,151 @@ static sms_message_t* parse_sms_json(const char *json_str, int *count) {
     return messages;
 }
 
-static char* merge_multipart_sms(sms_message_t *messages, int count) {
-    // Group messages by reference number and sender
-    for (int i = 0; i < count; i++) {
-        if (messages[i].total <= 1) {
-            // Single part message, process immediately
-            char *result = malloc(strlen(messages[i].content) + 1);
-            strcpy(result, messages[i].content);
-            return result;
-        }
+static int find_and_process_sms_groups(sms_message_t *messages, int count, processed_sms_t **processed, int *processed_count) {
+    *processed = NULL;
+    *processed_count = 0;
+    
+    if (!messages || count == 0) {
+        return 0;
     }
     
-    // Find complete multipart messages
+    // Track which messages have been processed
+    int *processed_flags = calloc(count, sizeof(int));
+    if (!processed_flags) {
+        syslog(LOG_ERR, "Memory allocation failed for processed flags");
+        return -1;
+    }
+    
+    processed_sms_t *temp_processed = malloc(count * sizeof(processed_sms_t));
+    if (!temp_processed) {
+        free(processed_flags);
+        syslog(LOG_ERR, "Memory allocation failed for processed messages");
+        return -1;
+    }
+    
+    int temp_count = 0;
+    
+    // First, process single part messages
     for (int i = 0; i < count; i++) {
-        if (messages[i].total > 1) {
-            int ref = messages[i].reference;
-            char *sender = messages[i].sender;
-            int total_parts = messages[i].total;
+        if (processed_flags[i] || messages[i].total > 1) {
+            continue;
+        }
+        
+        // Single part message
+        temp_processed[temp_count].content = malloc(strlen(messages[i].content) + 1);
+        if (!temp_processed[temp_count].content) {
+            syslog(LOG_ERR, "Memory allocation failed for single SMS content");
+            continue;
+        }
+        strcpy(temp_processed[temp_count].content, messages[i].content);
+        strcpy(temp_processed[temp_count].sender, messages[i].sender);
+        temp_processed[temp_count].timestamp = messages[i].timestamp;
+        
+        temp_processed[temp_count].indices = malloc(sizeof(int));
+        if (temp_processed[temp_count].indices) {
+            temp_processed[temp_count].indices[0] = messages[i].index;
+            temp_processed[temp_count].index_count = 1;
+        } else {
+            temp_processed[temp_count].index_count = 0;
+        }
+        
+        processed_flags[i] = 1;
+        temp_count++;
+    }
+    
+    // Then, process multipart messages
+    for (int i = 0; i < count; i++) {
+        if (processed_flags[i] || messages[i].total <= 1) {
+            continue;
+        }
+        
+        int ref = messages[i].reference;
+        char *sender = messages[i].sender;
+        int total_parts = messages[i].total;
+        
+        // Collect all parts for this reference and sender
+        sms_message_t *parts = malloc(total_parts * sizeof(sms_message_t));
+        if (!parts) {
+            syslog(LOG_ERR, "Memory allocation failed for SMS parts");
+            continue;
+        }
+        
+        int found_parts = 0;
+        for (int j = 0; j < count; j++) {
+            if (processed_flags[j]) continue;
             
-            // Collect all parts
-            sms_message_t *parts = malloc(total_parts * sizeof(sms_message_t));
-            int found_parts = 0;
-            
-            for (int j = 0; j < count; j++) {
-                if (messages[j].reference == ref && 
-                    strcmp(messages[j].sender, sender) == 0) {
-                    parts[found_parts++] = messages[j];
-                }
+            if (messages[j].reference == ref && 
+                strcmp(messages[j].sender, sender) == 0 &&
+                messages[j].total == total_parts) {
+                parts[found_parts++] = messages[j];
             }
-            
-            if (found_parts == total_parts) {
-                // Sort parts by part number
-                for (int x = 0; x < found_parts - 1; x++) {
-                    for (int y = x + 1; y < found_parts; y++) {
-                        if (parts[x].part > parts[y].part) {
-                            sms_message_t temp = parts[x];
-                            parts[x] = parts[y];
-                            parts[y] = temp;
-                        }
+        }
+        
+        if (found_parts == total_parts) {
+            // Sort parts by part number
+            for (int x = 0; x < found_parts - 1; x++) {
+                for (int y = x + 1; y < found_parts; y++) {
+                    if (parts[x].part > parts[y].part) {
+                        sms_message_t temp = parts[x];
+                        parts[x] = parts[y];
+                        parts[y] = temp;
                     }
                 }
-                
-                // Concatenate content
-                int total_len = 0;
-                for (int k = 0; k < found_parts; k++) {
-                    total_len += strlen(parts[k].content);
-                }
-                
-                char *merged = malloc(total_len + 1);
-                merged[0] = '\0';
-                
-                for (int k = 0; k < found_parts; k++) {
-                    strcat(merged, parts[k].content);
-                }
-                
-                free(parts);
-                return merged;
             }
             
-            free(parts);
+            // Concatenate content
+            int total_len = 0;
+            for (int k = 0; k < found_parts; k++) {
+                total_len += strlen(parts[k].content);
+            }
+            
+            temp_processed[temp_count].content = malloc(total_len + 1);
+            if (temp_processed[temp_count].content) {
+                temp_processed[temp_count].content[0] = '\0';
+                for (int k = 0; k < found_parts; k++) {
+                    strcat(temp_processed[temp_count].content, parts[k].content);
+                }
+                
+                strcpy(temp_processed[temp_count].sender, parts[0].sender);
+                temp_processed[temp_count].timestamp = parts[0].timestamp;
+                
+                // Store indices for deletion
+                temp_processed[temp_count].indices = malloc(found_parts * sizeof(int));
+                if (temp_processed[temp_count].indices) {
+                    for (int k = 0; k < found_parts; k++) {
+                        temp_processed[temp_count].indices[k] = parts[k].index;
+                    }
+                    temp_processed[temp_count].index_count = found_parts;
+                } else {
+                    temp_processed[temp_count].index_count = 0;
+                }
+                
+                // Mark all parts as processed
+                for (int j = 0; j < count; j++) {
+                    if (messages[j].reference == ref && 
+                        strcmp(messages[j].sender, sender) == 0 &&
+                        messages[j].total == total_parts) {
+                        processed_flags[j] = 1;
+                    }
+                }
+               
+                temp_count++;
+            }
         }
+        
+        free(parts);
     }
     
-    return NULL;
+    free(processed_flags);
+    
+    if (temp_count > 0) {
+        *processed = temp_processed;
+        *processed_count = temp_count;
+    } else {
+        free(temp_processed);
+    }
+    
+    return 0;
 }
 
 static int execute_callback(const char *api_type, const char *api_config, 
@@ -372,8 +522,8 @@ static int execute_callback(const char *api_type, const char *api_config,
     return 0;
 }
 
-static void process_sms_messages(sms_forwarder_config_t *config) {
-    char *sms_json = read_sms_from_modem(config->modem_port);
+static void process_sms_messages(modem_config_t *modem_config) {
+    char *sms_json = read_sms_from_modem(modem_config->modem_port);
     if (!sms_json) {
         return;
     }
@@ -386,25 +536,38 @@ static void process_sms_messages(sms_forwarder_config_t *config) {
         return;
     }
     
-    char *merged_content = merge_multipart_sms(messages, count);
-    if (merged_content) {
-        // Use first message for sender and timestamp
-        int ret = execute_callback(config->api_type, config->api_config,
-                        messages[0].sender, messages[0].timestamp, merged_content);
-        
-        // Delete SMS messages if forwarding was successful and delete option is enabled
-        if (ret == 0 && config->delete_after_forward) {
-            int *indices = malloc(count * sizeof(int));
-            if (indices) {
-                for (int i = 0; i < count; i++) {
-                    indices[i] = messages[i].index;
+    processed_sms_t *processed = NULL;
+    int processed_count = 0;
+    
+    if (find_and_process_sms_groups(messages, count, &processed, &processed_count) == 0 && processed) {
+        // Process all SMS messages
+        for (int i = 0; i < processed_count; i++) {
+            int success_count = 0;
+            
+            // Try to forward through all configured APIs
+            for (int j = 0; j < modem_config->api_count; j++) {
+                int ret = execute_callback(modem_config->apis[j].api_type, modem_config->apis[j].api_config,
+                                processed[i].sender, processed[i].timestamp, processed[i].content);
+                if (ret == 0) {
+                    success_count++;
                 }
-                delete_sms_from_modem(config->modem_port, indices, count);
-                free(indices);
+            }
+            
+            // Delete SMS messages if at least one forwarding was successful and delete option is enabled
+            if (success_count > 0 && modem_config->delete_after_forward && processed[i].indices) {
+                delete_sms_from_modem(modem_config->modem_port, processed[i].indices, processed[i].index_count);
+            }
+            
+            // Cleanup
+            if (processed[i].content) {
+                free(processed[i].content);
+            }
+            if (processed[i].indices) {
+                free(processed[i].indices);
             }
         }
         
-        free(merged_content);
+        free(processed);
     }
     
     free(messages);
@@ -434,9 +597,15 @@ int main(int argc, char *argv[]) {
     }
     
     printf("Config parsed successfully\n");
-    printf("Modem port: %s\n", g_config.modem_port);
-    printf("Poll interval: %d\n", g_config.poll_interval);
-    printf("API type: %s\n", g_config.api_type);
+    printf("Found %d modem(s) to monitor:\n", g_config.modem_count);
+    for (int i = 0; i < g_config.modem_count; i++) {
+        printf("  Modem %d: %s (poll: %ds, APIs: %d, delete: %s)\n", 
+               i + 1, g_config.modems[i].modem_port, g_config.modems[i].poll_interval,
+               g_config.modems[i].api_count, g_config.modems[i].delete_after_forward ? "yes" : "no");
+        for (int j = 0; j < g_config.modems[i].api_count; j++) {
+            printf("    API %d: %s\n", j + 1, g_config.modems[i].apis[j].api_type);
+        }
+    }
     fflush(stdout);
     
     // Check dependencies
@@ -449,18 +618,26 @@ int main(int argc, char *argv[]) {
     fflush(stdout);
     setup_signals();
     
-    syslog(LOG_INFO, "SMS Forwarder started with config: %s", argv[1]);
+    syslog(LOG_INFO, "SMS Forwarder started with config: %s, monitoring %d modems", argv[1], g_config.modem_count);
     printf("Entering main loop...\n");
     fflush(stdout);
     
     // Main loop
     while (g_running) {
-        printf("Processing SMS messages...\n");
+        for (int i = 0; i < g_config.modem_count; i++) {
+            process_sms_messages(&g_config.modems[i]);
+        }
+        
+        // Find the minimum poll interval among all modems
+        int min_poll_interval = g_config.modems[0].poll_interval;
+        for (int i = 1; i < g_config.modem_count; i++) {
+            if (g_config.modems[i].poll_interval < min_poll_interval) {
+                min_poll_interval = g_config.modems[i].poll_interval;
+            }
+        }
+        
         fflush(stdout);
-        process_sms_messages(&g_config);
-        printf("Sleeping for %d seconds...\n", g_config.poll_interval);
-        fflush(stdout);
-        sleep(g_config.poll_interval);
+        sleep(min_poll_interval);
     }
     
     syslog(LOG_INFO, "SMS Forwarder stopped");
