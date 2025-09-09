@@ -137,7 +137,7 @@ opkg install luci-app-qmodem.ipk --force-depends
 | **扩展前缀** (`extend_prefix`)            | 高级   | `Flag`    | 如果启用，委派的 IPv6 前缀将应用于 LAN 区域。                            |
 | **PDP 类型** (`pdp_type`)                 | 高级   | `List`    | 连接的 IP 协议 (`IPv4`, `IPv6`, 或 `IPv4/IPv6`)。                        |
 | **APN / APN 2** (`apn`, `apn2`)           | 高级   | `Text`    | SIM 卡槽 1 和 2 的接入点名称。可以留空以进行自动检测。                   |
-| **认证类型** (`auth`)                     | 高级   | `List`    | 认证协议 (`NONE`, `PAP`, `CHAP`, 或 `PAP/CHAP`)。                        |
+| **认证类型** (`auth`)                     | 高级   | `List`    | 认证协议 (`NONE`, `PAP`, `CHAP`, 或 `MsChapV2`)。                        |
 | **PAP/CHAP 用户名/密码**                  | 高级   | `Text`    | 如果需要，用于认证的凭据。                                               |
 | **PIN 码** (`pincode`)                    | 高级   | `Text`    | SIM 卡的 PIN 码，如果已锁定。                                            |
 | **跃点数** (`metric`)                     | 高级   | `Integer` | 此接口的路由跃点数。值越小，优先级越高。                                 |
