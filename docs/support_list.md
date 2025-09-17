@@ -33,6 +33,7 @@ rm520n-eu | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gob
 rm520n-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
 rm520f-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
 rm521f-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
+rm530n-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
 rm551e-gl | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
 rg501q-eu | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
 rg520n-eu | qualcomm |✔ usb(qmi,gobinet,ecm,mbim,rndis,ncm) | ✔ pcie(qmi,gobinet,mbim)
@@ -85,6 +86,7 @@ Model | Platform | USB  | PCIe
 --- | --- | --- | ---
 simcom_d8200g | qualcomm |✔ usb(qmi,rndis) | ✘
 simcom_sim8200ea-m2 | qualcomm |✔ usb(qmi,rndis) | ✘
+simcom_sim8202g-m2 | qualcomm |✔ usb(qmi,rndis,mbim) | ✘
 simcom_sim8380g-m2 | qualcomm |✔ usb(qmi,rndis) | ✔ pcie(qmi)
 
 # foxconn
