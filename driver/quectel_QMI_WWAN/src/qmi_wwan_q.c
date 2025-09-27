@@ -2548,9 +2548,9 @@ static const struct usb_device_id products[] = {
 	{ QMI_FIXED_RAWIP_INTF(0x05C6, 0x9025, 4, sdx55) },
 	{ QMI_FIXED_RAWIP_INTF(0x05C6, 0x9091, 2, sdx55) },
 	{ QMI_FIXED_RAWIP_INTF(0x1BC7, 0x1070, 2, sdx55) },  /* Telit FN990A40 */
-	{QMI_QUIRK_SET_DTR(0x05c6, 0x9091, 2)},	/* Compal RXM-G1 */
-	{QMI_QUIRK_SET_DTR(0x05c6, 0x90db, 2)},	/* Compal RXM-G1 */
-	{QMI_QUIRK_SET_DTR(0x05c6, 0x901f, 2)},	/* Compal RXM-G1 USB */
+	{ QMI_FIXED_RAWIP_INTF(0x05c6, 0x9091, 2, sdx55) },	/* Compal RXM-G1 */
+	{ QMI_FIXED_RAWIP_INTF(0x05c6, 0x90db, 2, sdx55) },	/* Compal RXM-G1 */
+	{ QMI_FIXED_RAWIP_INTF(0x05c6, 0x901f, 2, sdx55) },	/* Compal RXM-G1 USB */
 	{ }					/* END */
 };
 MODULE_DEVICE_TABLE(usb, products);
