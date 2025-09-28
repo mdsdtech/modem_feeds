@@ -2521,6 +2521,10 @@ static const struct driver_info qmi_wwan_raw_ip_info_sdx55 = {
 	USB_DEVICE_INTERFACE_NUMBER(vend, prod, num), \
 	.driver_info = (unsigned long)&qmi_wwan_raw_ip_info_##chip
 
+#define QMI_QUIRK_SET_DTR(vend, prod, num) \
+    USB_DEVICE_INTERFACE_NUMBER(vend, prod, num), \
+    .driver_info = (unsigned long)&qmi_wwan_info_quirk_dtr
+
 static const struct usb_device_id products[] = {
 	{ QMI_FIXED_INTF(0x05C6, 0x9003, 4) },  /* Quectel UC20 */
 	{ QMI_FIXED_INTF(0x05C6, 0x9215, 4) },  /* Quectel EC20 (MDM9215) */
@@ -2550,7 +2554,7 @@ static const struct usb_device_id products[] = {
 	{ QMI_FIXED_RAWIP_INTF(0x1BC7, 0x1070, 2, sdx55) },  /* Telit FN990A40 */
 	{ QMI_FIXED_RAWIP_INTF(0x05c6, 0x9091, 2, sdx55) },	/* Compal RXM-G1 */
 	{ QMI_FIXED_RAWIP_INTF(0x05c6, 0x90db, 2, sdx55) },	/* Compal RXM-G1 */
-	{ QMI_FIXED_RAWIP_INTF(0x05c6, 0x901f, 2, sdx55) },	/* Compal RXM-G1 USB */
+	{ QMI_FIXED_RAWIP_INTF(0x05c6, 0x901f, 1, sdx55) },	/* Compal RXM-G1 USB */
 	{ }					/* END */
 };
 MODULE_DEVICE_TABLE(usb, products);
