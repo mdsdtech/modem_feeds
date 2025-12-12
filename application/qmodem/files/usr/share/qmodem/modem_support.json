@@ -132,7 +132,7 @@
                     "ncm"
                 ]
             },
-            "mt5710m_cn": {
+            "mt5710_cn": {
                 "manufacturer_id": "3466",
                 "manufacturer": "huawei",
                 "platform": "hisilicon",
@@ -831,6 +831,21 @@
                     "ncm"
                 ]
             },
+            "fm160-eau": {
+                "manufacturer_id": "2cb7",
+                "manufacturer": "fibocom",
+                "platform": "qualcomm",
+                "data_interface": "usb",
+                "pdp_index": "1",
+                "modes": [
+                    "qmi",
+                    "gobinet",
+                    "ecm",
+                    "mbim",
+                    "rndis",
+                    "ncm"
+                ]
+            },
             "fm160-na": {
                 "manufacturer_id": "2cb7",
                 "manufacturer": "fibocom",
@@ -972,7 +987,7 @@
                 "manufacturer": "quectel",
                 "platform": "lte",
                 "data_interface": "usb",
-                "pdp_index": "3",
+                "pdp_index": "1",
                 "modes": [
                     "ecm",
                     "mbim",
