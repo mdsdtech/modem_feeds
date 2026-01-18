@@ -42,15 +42,21 @@ last_netstat=""
 
 led_turn() {
 	local path="/sys/class/leds/$1"
-	local brightness="$2"
-
+	local value="$2"
+	max_brightness=$(cat "$path/max_brightness")
+	if [ "$value" = "1" ]; then
+		brightness=$max_brightness
+	else
+		brightness="0"
+	fi
 	echo "$brightness" > "$path/brightness"
 }
 
 led_heartbeat() {
 	local path="/sys/class/leds/$1"
+	max_brightness=$(cat "$path/max_brightness")
 
-	echo "1" > "$path/brightness"
+	echo "$max_brightness" > "$path/brightness"
 	echo "heartbeat" > "$path/trigger"
 }
 
@@ -73,22 +79,6 @@ led_off_all() {
 	led_turn "${LED_5G_GOOD}" "0"
 }
 
-nr_bw() {
-	local bw="$1"
-	case "$bw" in
-	"0"|"1"|"2"|"3"|"4"|"5")
-		echo "$(((bw + 1) * 5))" ;;
-	"6"|"7"|"8"|"9"|"10"|"11"|"12")
-		echo "$(((bw - 2) * 10))" ;;
-	"13")
-		echo "200" ;;
-	"14")
-		echo "400" ;;
-	"15"|"25"|"75"|"100")
-		echo "$(( bw / 5 ))" ;;
-	esac
-}
-
 sim_inserted() {
 
 	if at $AT_PORT "AT+CPIN?" | grep -q "CPIN: READY"; then
@@ -108,37 +98,25 @@ internet_led() {
 	fi
 }
 
-sim_netstat() {
-	local mode
-	local bw csq rscp rssi
+get_mode() {
+	local rat_mode="$1"
+	rat_code=$(at $AT_PORT "AT+COPS?" | grep +COPS: | awk -F, '{print $4}' | tr -d '"')
+	[ "$rat_code" -le "7" ] && echo "0" || echo "1"
+}
 
-	local srvinfo="$(at $AT_PORT 'AT+QENG="servingcell"')"
-	if echo "$srvinfo" | grep -q "NR5G"; then
-		mode="5g"
-	else
-		mode="4g"
+get_rsrp() {
+	rsrp=$(/usr/share/qmodem/modem_ctrl.sh cell_info "$MODEM_CFG" | jq -r '.modem_info[] | select(.key=="RSRP") | .value')
+	# if rsrp is empty, return 0
+	[ -z "$rsrp" ] && rsrp="0"
+	# if rsrp out of range, return 0
+	if [ "$rsrp" -gt "0" ] || [ "$rsrp" -lt "-140" ]; then
+		rsrp="0"
 	fi
-
-	csq="$(tom_modem -d /dev/mhi_DUN -c "AT+CSQ" | grep -Eo '\+CSQ: [0-9]{2}' | awk '{print $2}')"
-	rssi="$(( 2 * csq - 113 ))"
-	if [ "$csq" = "99" ]; then
-		bw="$(nr_bw "$(echo "$srvinfo" | awk -F ',' '/^\+QENG/ {print $12}')")"
-		rscp="$(echo "$srvinfo" | awk -F ',' '/^\+QENG/ {print $13}')"
-		rssi="$(rsrp2rssi "$rscp" "$bw")"
-	fi
-
-	# 0: no service, 1: weak, 2: good
-	if [ "$rssi" = "-113" ] || [ "$rssi" = "85" ]; then
-		echo "$mode,0"
-	elif [ "$rssi" -le "-70" ]; then
-		echo "$mode,1"
-	else
-		echo "$mode,2"
-	fi
+	echo "$rsrp"
 }
 
 main() {
-	local siminserted="$(sim_inserted "/dev/mhi_DUN")"
+	local siminserted="$(sim_inserted)"
 	if [ "$siminserted" = "0" ] && [ "$siminserted" = "$last_siminserted" ]; then
 		# there's no update, return
 		return
@@ -155,49 +133,56 @@ main() {
 		return
 	fi
 
-	local netstat="$(sim_netstat)"
-
+	local is_nr=$(get_mode)
+	local rsrp=$(get_rsrp)
+	local signal="0"
+	
+	#三档singal
+	if [ "$rsrp" -ge "-95" ] && [ "$rsrp" -lt "0" ]; then
+		signal="2"
+	elif [ "$rsrp" -ge "-110" ] && [ "$rsrp" -lt "-95" ]; then
+		signal="1"
+	else
+		signal="0"
+	fi
+	
+	netstat="${is_nr}_${signal}"
 	if [ "$netstat" = "$last_netstat" ]; then
 		# there's no update, return
 		return
 	fi
-	local mode="${netstat%,*}"
-	local signal="${netstat#*,}"
+	last_netstat="$netstat"
 
 	case "$signal" in
 	"0")
 		led_off_all
-		case "$mode" in
-			"4g")
+		case "$is_nr" in
+			"0")
 				led_heartbeat "${LED_4G_POOR}"
 				;;
-			"5g")
+			"1")
 				led_heartbeat "${LED_5G_POOR}"
 				;;
 		esac
 		;;
 	"1")
 		led_off_all
-		case "$mode" in
-			"4g")
-				led_turn "${LED_4G_POOR}" "1"
-				led_netdev "${LED_4G_GOOD}" "$NET_DEV"
+		case "$is_nr" in
+			"0")
+				led_netdev "${LED_4G_POOR}" "$NET_DEV"
 				;;
-			"5g")
-				led_turn "${LED_5G_POOR}" "1"
-				led_netdev "${LED_5G_GOOD}" "$NET_DEV"
+			"1")
+				led_netdev "${LED_4G_POOR}" "$NET_DEV"
 				;;
 		esac
 		;;
 	"2")
 		led_off_all
-		case "$mode" in
-			"4g")
-				led_turn "${LED_4G_GOOD}" "1"
+		case "$is_nr" in
+			"0")
 				led_netdev "${LED_4G_GOOD}" "$NET_DEV"
 				;;
-			"5g")
-				led_turn "${LED_5G_GOOD}" "1"
+			"1")
 				led_netdev "${LED_5G_GOOD}" "$NET_DEV"
 				;;
 		esac
