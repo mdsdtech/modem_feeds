@@ -81,6 +81,7 @@ _get_led_sript_by_slot()
     if [ "$target_slot" == "$_get_slot" ];then
         config_get led_script $cfg  led_script
     fi
+}
 
 scan()
 {
