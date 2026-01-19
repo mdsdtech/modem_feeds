@@ -78,7 +78,7 @@ _get_led_sript_by_slot()
 {
     local cfg="$1"
     config_get _get_slot $cfg slot
-    if [ "$target_slot" == "$_get_slot" ];then
+    if [ "$target_slot" == "$_get_script" ];then
         config_get led_script $cfg  led_script
     fi
 }
