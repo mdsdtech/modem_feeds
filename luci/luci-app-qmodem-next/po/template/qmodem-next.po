@@ -3053,3 +3053,83 @@ msgstr ""
 #: view/qmodem/network_config.js:335
 msgid "quectel-CM will append the DNS server to the resolv.conf file by default.if you do not want to modify the resolv.conf file, please check this option."
 msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "SIM Switch"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Switch between SIM card slots. Note: Some modems may require a reboot after switching SIM slots."
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "SIM Switch Status"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Select SIM Slot"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Support"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Supported"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Not Supported"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Current SIM Slot"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Slot 1"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Slot 2"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "SIM Slot 1"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "SIM Slot 2"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "This modem does not support SIM switching."
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Switching SIM slot..."
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "SIM slot switched to Slot %s successfully."
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Note: Some modems may require a reboot for the change to take effect."
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Failed to switch SIM slot. Please check modem status."
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Error switching SIM slot: %s"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Error loading SIM switch information: %s"
+msgstr ""
+
+#: view/qmodem/sim_switch.js
+msgid "Result"
+msgstr ""

@@ -835,3 +835,29 @@ function _parse_hfreqinfo(){
     done
     unset IFS
 }
+
+# get sim switch capabilities
+sim_switch_capabilities(){
+    json_add_string "supportSwitch" "1"
+}
+
+get_sim_slot(){
+    local at_command="AT^HVSST?"
+	sim_slot=$(at $at_port $at_command | grep "HVSST:" | awk -F',' '{print $3}' | xargs)
+    json_add_string "sim_slot" "$sim_slot"
+}
+
+set_sim_slot(){
+    local sim_slot=$1
+    case $platform in
+        "unisoc")
+            at_command="AT^SIMSWITCH=$sim_slot"
+            ;;
+        "hisilicon")
+            
+            at_command="AT^SIMSWITCH=$sim_slot,0"
+            ;;
+    esac
+    response=$(at $at_port $at_command | xargs)
+    json_add_string "result" "$response"
+}
