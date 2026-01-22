@@ -112,7 +112,8 @@ return view.extend({
 			
 			var supported = supportResult && supportResult.supportSwitch === '1';
 			var currentSlot = slotResult && slotResult.sim_slot ? slotResult.sim_slot : 'N/A';
-            var hideButtons = !supported || currentSlot === 'N/A';
+			var slots = (supportResult && Array.isArray(supportResult.simSlots)) ? supportResult.simSlots : [];
+			var hideButtons = !supported || currentSlot === 'N/A' || slots.length === 0;
 			
 			// Update status
 			var statusInfo = [];
@@ -128,22 +129,21 @@ return view.extend({
 			
 			dom.content(statusField, statusInfo);
 			
-			// Create SIM slot buttons
-			var slot1Btn = E('button', {
-				'class': 'btn cbi-button' + (currentSlot === '0' ? ' cbi-button-positive' : ' cbi-button-action'),
-				'style': !supported ? 'opacity: 0.5; cursor: not-allowed;' : '',
-				'click': supported ? function() { self.switchSimSlot(modem.id, '0', slot1Btn, slot2Btn); } : null,
-                'style': hideButtons ? 'display: none;' : ''
-			}, _('SIM Slot 0'));
-			
-			var slot2Btn = E('button', {
-				'class': 'btn cbi-button' + (currentSlot === '1' ? ' cbi-button-positive' : ' cbi-button-action'),
-				'style': (!supported ? 'opacity: 0.5; cursor: not-allowed;' : '') + ' margin-left: 10px;',
-				'click': supported ? function() { self.switchSimSlot(modem.id, '1', slot1Btn, slot2Btn); } : null,
-                'style': hideButtons ? 'display: none;' : ''
-			}, _('SIM Slot 1'));
-			
-			dom.content(buttonsField, [slot1Btn, slot2Btn]);
+			// Create SIM slot buttons dynamically based on capabilities
+			var btns = [];
+			if (!hideButtons) {
+				slots.forEach(function(slotVal, idx) {
+					var label = _('Slot %s').format(slotVal);
+					var btn = E('button', {
+						'class': 'btn cbi-button' + (currentSlot == slotVal ? ' cbi-button-positive' : ' cbi-button-action'),
+						'data-slot': slotVal,
+						'click': supported ? function() { self.switchSimSlot(modem.id, slotVal, btns); } : null,
+						'style': (!supported ? 'opacity: 0.5; cursor: not-allowed;' : '') + (idx > 0 ? ' margin-left: 10px;' : '')
+					}, label);
+					btns.push(btn);
+				});
+			}
+			dom.content(buttonsField, btns);
 			
 			if (!supported) {
 				buttonsField.appendChild(E('div', { 'style': 'margin-top: 10px; color: #999;' }, 
@@ -154,39 +154,20 @@ return view.extend({
 			dom.content(statusField, E('span', { 'class': 'error' }, 
 				_('Error loading SIM switch information: %s').format(e.message)));
 			
-			// Disable buttons on error
-			var disabledBtn1 = E('button', {
-				'class': 'btn cbi-button cbi-button-action',
-				'disabled': true,
-				'style': 'opacity: 0.5; cursor: not-allowed;'
-			}, _('SIM Slot 1'));
-			
-			var disabledBtn2 = E('button', {
-				'class': 'btn cbi-button cbi-button-action',
-				'disabled': true,
-				'style': 'opacity: 0.5; cursor: not-allowed; margin-left: 10px;'
-			}, _('SIM Slot 2'));
-			
-			dom.content(buttonsField, [disabledBtn1, disabledBtn2]);
+			// No buttons on error; show info only
+			dom.content(buttonsField, []);
 		});
 
 		return container;
 	},
 
 	formatSlotDisplay: function(slot) {
-		// 0 = Slot 1, 1 = Slot 2 (as per user requirement)
-		// But based on the backend code, it seems 1 = Slot 1, 2 = Slot 2
-		switch(slot) {
-			case '1':
-				return _('Slot 1');
-			case '2':
-				return _('Slot 2');
-			default:
-				return slot || 'N/A';
-		}
+		if (!slot)
+			return 'N/A';
+		return _('Slot %s').format(slot);
 	},
 
-	switchSimSlot: function(modemId, slot, slot1Btn, slot2Btn) {
+	switchSimSlot: function(modemId, slot, buttons) {
 		var self = this;
 		var resultSection = document.getElementById('sim_result_section_' + modemId);
 		var resultField = document.getElementById('sim_result_' + modemId);
@@ -196,17 +177,11 @@ return view.extend({
 		dom.content(resultField, E('div', { 'class': 'spinning' }, _('Switching SIM slot...')));
 		
 		// Disable buttons during switch
-		slot1Btn.disabled = true;
-		slot2Btn.disabled = true;
-		slot1Btn.style.opacity = '0.5';
-		slot2Btn.style.opacity = '0.5';
+		(buttons || []).forEach(function(b){ b.disabled = true; b.style.opacity = '0.5'; });
 		
 		qmodem.setSimSlot(modemId, slot).then(function(result) {
 			// Re-enable buttons
-			slot1Btn.disabled = false;
-			slot2Btn.disabled = false;
-			slot1Btn.style.opacity = '';
-			slot2Btn.style.opacity = '';
+			(buttons || []).forEach(function(b){ b.disabled = false; b.style.opacity = ''; });
 			
 			if (result && result.result) {
 				dom.content(resultField, E('div', { 'class': 'alert-message success' }, [
@@ -217,23 +192,17 @@ return view.extend({
 				]));
 				
 				// Update button styles to reflect new slot
-				if (slot === '1') {
-					slot1Btn.className = 'btn cbi-button cbi-button-positive';
-					slot2Btn.className = 'btn cbi-button cbi-button-action';
-				} else {
-					slot1Btn.className = 'btn cbi-button cbi-button-action';
-					slot2Btn.className = 'btn cbi-button cbi-button-positive';
-				}
+				(buttons || []).forEach(function(b){
+					var bs = b.getAttribute('data-slot');
+					b.className = 'btn cbi-button' + (bs == slot ? ' cbi-button-positive' : ' cbi-button-action');
+				});
 			} else {
 				dom.content(resultField, E('div', { 'class': 'alert-message warning' }, 
 					_('Failed to switch SIM slot. Please check modem status.')));
 			}
 		}).catch(function(e) {
 			// Re-enable buttons
-			slot1Btn.disabled = false;
-			slot2Btn.disabled = false;
-			slot1Btn.style.opacity = '';
-			slot2Btn.style.opacity = '';
+			(buttons || []).forEach(function(b){ b.disabled = false; b.style.opacity = ''; });
 			
 			dom.content(resultField, E('div', { 'class': 'alert-message error' }, 
 				_('Error switching SIM slot: %s').format(e.message)));

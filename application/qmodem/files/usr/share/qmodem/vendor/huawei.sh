@@ -839,6 +839,10 @@ function _parse_hfreqinfo(){
 # get sim switch capabilities
 sim_switch_capabilities(){
     json_add_string "supportSwitch" "1"
+    json_add_array "simSlots"
+    json_add_string "" "0"
+    json_add_string "" "1"
+    json_close_array
 }
 
 get_sim_slot(){
