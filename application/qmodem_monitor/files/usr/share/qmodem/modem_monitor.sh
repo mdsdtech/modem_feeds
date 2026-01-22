@@ -224,12 +224,14 @@ switch_sim_slot() {
   is_supported=$(ubus call qmodem get_sim_switch_capabilities '{"config_section": "'$Modem_ID'"}' | jq -r '.supportSwitch')
   if [ "$is_supported" = "1" ]; then
     current_slot=$(ubus call qmodem get_sim_slot '{"config_section": "'$Modem_ID'"}' | jq -r '.sim_slot')
-    if [ "$current_slot" = "1" ]; then
-      new_slot=0
-    else
-      new_slot=1
-    fi
-    ubus call qmodem set_sim_slot '{"config_section": "'$Modem_ID'", "sim_slot": '$new_slot'}'
+    available_slots=$(ubus call qmodem get_sim_switch_capabilities '{"config_section": "'$Modem_ID'"}' | jq -r '.simSlots[]')
+    for slot in $available_slots; do
+        if [ "$slot" != "$current_slot" ]; then
+            new_slot=$slot
+            break
+        fi
+    done
+    ubus call qmodem set_sim_slot '{"config_section": "'$Modem_ID'", "slot": '$new_slot'}'
     log "Switch SIM slot from $current_slot to $new_slot"
   else
     log "Switching SIM slot is not supported for modem $Modem_ID"
