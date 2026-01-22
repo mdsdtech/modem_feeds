@@ -117,9 +117,6 @@ return view.extend({
 		s = m.section(form.NamedSection, 'main', 'main', _('Global Monitor Settings'));
 		s.anonymous = true;
 
-		o = s.option(form.Flag, 'monitor_enabled', _('Enable Monitor (Global)'));
-		o.default = '0';
-		o.rmempty = false;
 
 		// QModem Monitor RC status display
 		var rcStatus = s.option(form.DummyValue, '_rc_status', _('Monitor Service'));
