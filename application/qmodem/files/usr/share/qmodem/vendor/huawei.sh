@@ -860,8 +860,14 @@ set_sim_slot(){
             at_command="AT^SIMSWITCH=$sim_slot"
             ;;
         "hisilicon")
-            
-            at_command="AT^SIMSWITCH=$sim_slot,0"
+            case $sim_slot in
+                "0")
+                    at_command="AT^SCICHG=0,1"
+                    ;;
+                "1")
+                    at_command="AT^SCICHG=1,0"
+                    ;;
+            esac
             ;;
     esac
     echo "$sim_slot" > /tmp/huawei_sim_slot_$config_section
