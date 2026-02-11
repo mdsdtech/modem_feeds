@@ -885,7 +885,7 @@ at_dial()
         "gosuncn")
             case $platform in
                 "lte")
-                    at_command="AT+ZECMCALL=1,$pdp_index"
+                    at_command="AT+ZECMCALL=1"
                     cgdcont_command="AT+CGDCONT=$pdp_index,\"$pdp_type\""$apn_append
                     ;;
             esac
