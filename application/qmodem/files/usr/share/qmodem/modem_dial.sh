@@ -593,7 +593,11 @@ dial(){
 
 wwan_hang()
 {
-    m_debug "wwan_hang"
+    pid=$(cat "${MODEM_RUNDIR}/${modem_config}_dir/$modem_config.pid")
+    m_debug "wwan_hang, pid = $pid"
+    if [ -n $pid ]; then
+        kill $pid
+    fi
 }
 
 ecm_hang()
@@ -750,7 +754,10 @@ qmi_dial()
     cmd_line="$cmd_line -f $log_file"
     while true; do
         m_debug "dialing: $cmd_line"
-        $cmd_line
+        $cmd_line &
+        echo "$!" > "${MODEM_RUNDIR}/${modem_config}_dir/$modem_config.pid"
+        m_debug "pid: $!"
+        wait
         m_debug "quectel-CM exited, retrying dial"
     done
 }
@@ -863,10 +870,18 @@ at_dial()
             ;;
         "simcom")
             case $platform in
+                "asrmicro")                    
+                    at_command="AT+CGACT=1,$pdp_index"
+                    cgdcont_command="AT+CGDCONT=$pdp_index,\"$pdp_type\""$apn_append
+                    ;;
                 "qualcomm")
                     local cnmp=$(at ${at_port} "AT+CNMP?" | grep "+CNMP:" | sed 's/+CNMP: //g' | sed 's/\r//g')
                     at_command="AT+CNMP=$cnmp;+CNWINFO=1"
                     cgdcont_command="AT+CGDCONT=1,\"$pdp_type\""$apn_append
+                    ;;
+                "lte")
+                    at_command="AT+CGACT=1,$pdp_index"
+                    cgdcont_command="AT+CGDCONT=$pdp_index,\"$pdp_type\""$apn_append
                     ;;
             esac
             ;;
@@ -1142,6 +1157,19 @@ handle_ip_change()
     esac
 }
 
+check_cfun(){
+    at_command="AT+CFUN?"
+    response=$(at ${at_port} "${at_command}")
+    cfun_status=$(echo "$response" | grep "+CFUN:" | awk '{print $2}')
+    if [ "$cfun_status" = "1" ]; then
+        return 0
+    else
+        at_command="AT+CFUN=1"
+        response=$(at ${at_port} "${at_command}")
+        return 1
+    fi
+}
+
 check_logfile_line()
 {
     local line=$(wc -l $log_file | awk '{print $1}')
@@ -1155,6 +1183,18 @@ unexpected_response_count=0
 at_dial_monitor()
 {
     #check if support auto dial
+    check_cfun
+    if [ $? -ne 0 ]; then
+        m_debug "CFUN is not 1, try to set it to 1"
+        sleep 5
+        check_cfun
+        if [ $? -ne 0 ]; then
+            m_debug "Failed to set CFUN to 1, continue with monitor"
+            return
+        else
+            m_debug "Successfully set CFUN to 1"
+        fi
+    fi
     auto_dial_support=0
     at_auto_dial
     auto_dial_support=$?
