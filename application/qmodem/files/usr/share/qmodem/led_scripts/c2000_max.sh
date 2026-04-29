@@ -1,5 +1,8 @@
 #!/bin/sh
-
+# Copyright (C) 2026 x-shark
+_Vendor="nradio c2000-max"
+_Author="x-shark"
+_Maintainer="x-shark <unknown>"
 # envs
 # led names
 # LED_4G_POOR="red:4g"
@@ -81,7 +84,7 @@ led_off_all() {
 }
 
 sim_inserted() {
-	sim_status=$(/usr/share/qmodem/modem_ctrl.sh sim_info "$MODEM_CFG" | jq -r '.modem_info[] | select(.key=="SIM Status") | .value')
+	sim_status=$(ubus call qmodem sim_info "{\"config_section\":\"$MODEM_CFG\"}" | jq -r '.modem_info[] | select(.key=="SIM Status") | .value')
 	if [ "$sim_status" = "ready" ]; then
 		echo "1"
 	else
@@ -100,20 +103,27 @@ internet_led() {
 }
 
 get_mode() {
-	local rat_mode="$1"
-	rat_code=$(at $AT_PORT "AT+COPS?" | grep +COPS: | awk -F, '{print $4}' | tr -d '"')
-	[ "$rat_code" -le "7" ] && echo "0" || echo "1"
+	local network_mode=$(ubus call qmodem cell_info "{\"config_section\":\"$MODEM_CFG\"}" | jq -r '.modem_info[] | select(.key=="network_mode") | .value')
+	if [[ "$network_mode" == *"5G"* ]] || [[ "$network_mode" == *"NR"* ]]; then
+		echo "1"
+	else
+		echo "0"
+	fi
 }
 
 get_rsrq() {
-	rsrq=$(/usr/share/qmodem/modem_ctrl.sh cell_info "$MODEM_CFG" | jq -r '.modem_info[] | select(.key=="RSRQ") | .value')
-	# if rsrq is empty, return -999
-	[ -z "$rsrq" ] && rsrq="-999"
-	# if rsrq out of range, return -999
-	if [ "$rsrq" -gt "20" ] || [ "$rsrq" -lt "-43" ]; then
-		rsrq="-999"
+	rsrq=$(ubus call qmodem cell_info "{\"config_section\":\"$MODEM_CFG\"}" | jq -r '.modem_info[] | select(.key=="RSRQ") | .value')
+	# if rsrq is empty or null, return -1 to indicate no signal
+	if [ -z "$rsrq" ] || [ "$rsrq" = "null" ]; then
+		echo "-1"
+		return
 	fi
-	echo "$rsrq"
+	# if rsrq out of range, return -1
+	if [ "$rsrq" -gt "20" ] || [ "$rsrq" -lt "-43" ]; then
+		echo "-1"
+	else
+		echo "$rsrq"
+	fi
 }
 
 main() {
@@ -141,7 +151,7 @@ main() {
 	# RSRQ >= -12 dBm: 高信号
 	# -19 dBm <= RSRQ < -12 dBm: 中信号
 	# RSRQ < -19 dBm: 低信号
-	if [ "$rsrq" = "-999" ]; then
+	if [ "$rsrq" = "-1" ]; then
 		signal="-1"
 	elif [ "$rsrq" -ge "-12" ]; then
 		signal="2"
@@ -152,30 +162,15 @@ main() {
 	fi
 	
 	netstat="${NET_DEV}_${is_nr}_${signal}"
-	if [ "$netstat" = "$last_netstat" ]; then
+	
+	# 非轮询模式才检查是否有更新
+	if [ "$signal" != "-1" ] && [ "$netstat" = "$last_netstat" ]; then
 		# there's no update, return
 		return
 	fi
 	last_netstat="$netstat"
 
 	case "$signal" in
-	"-1")
-		# 无信号，轮询显示sig1、sig2、sig3
-		led_off_all
-		poll_counter=$((poll_counter % 3))
-		case "$poll_counter" in
-			"0")
-				led_turn "${LED_SIG1}" "1"
-				;;
-			"1")
-				led_turn "${LED_SIG2}" "1"
-				;;
-			"2")
-				led_turn "${LED_SIG3}" "1"
-				;;
-		esac
-		poll_counter=$((poll_counter + 1))
-		;;
 	"0")
 		led_off_all
 		led_turn "${LED_SIG3}" "1"
@@ -191,6 +186,23 @@ main() {
 	esac
 }
 
+polling_display() {
+	local count=$1
+	led_off_all
+	case $((poll_counter % 3)) in
+		"0")
+			led_turn "${LED_SIG1}" "1"
+			;;
+		"1")
+			led_turn "${LED_SIG2}" "1"
+			;;
+		"2")
+			led_turn "${LED_SIG3}" "1"
+			;;
+	esac
+	poll_counter=$((poll_counter + 1))
+}
+
 # Loop forever
 update_cfg
 if [ "$ON_OFF" = "off" ]; then
@@ -199,7 +211,28 @@ if [ "$ON_OFF" = "off" ]; then
 fi
 while true; do
 	update_netdev
-	main
-	internet_led
-	sleep 5s
+	
+	# 检查是否进入轮询模式
+	siminserted="$(sim_inserted)"
+	if [ "$siminserted" = "1" ]; then
+		rsrq=$(ubus call qmodem cell_info "{\"config_section\":\"$MODEM_CFG\"}" | jq -r '.modem_info[] | select(.key=="RSRQ") | .value')
+		# 当rsrq为空时进入轮询模式
+		if [ -z "$rsrq" ] || [ "$rsrq" = "null" ]; then
+			# 进入轮询模式：在5秒内以1秒间隔轮询显示
+			for i in 1 2 3 4 5; do
+				polling_display
+				sleep 1s
+			done
+		else
+			# 正常模式：执行主程序并等待5秒
+			main
+			internet_led
+			sleep 5s
+		fi
+	else
+		# SIM卡未插入
+		main
+		internet_led
+		sleep 5s
+	fi
 done
