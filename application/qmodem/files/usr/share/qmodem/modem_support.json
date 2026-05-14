@@ -910,7 +910,7 @@
                     "gobinet",
                     "ecm",
                     "mbim",
-                    "rndis",
+                    "rndis"
                 ]
             },
             "fm190w-gl": {
