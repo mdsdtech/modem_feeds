@@ -1,0 +1,20 @@
+[submodule "application/xgp-v3-screen"]
+	path = application/xgp-v3-screen
+	url = https://github.com/mdsdtech/xgp-v3-screen.git
+	branch = custom
+[submodule "driver/kmod-fb-tft-gc9307"]
+	path = driver/kmod-fb-tft-gc9307
+	url = https://github.com/mdsdtech/kmod-fb-tft-gc9307.git
+	branch = custom
+[submodule "luci/luci-app-poweroff"]
+	path = luci/luci-app-poweroff
+	url = https://github.com/mdsdtech/luci-app-poweroff.git
+	branch = custom
+[submodule "luci/luci-app-cpu-status"]
+	path = luci/luci-app-cpu-status
+	url = https://github.com/mdsdtech/luci-app-cpu-status.git
+	branch = custom
+[submodule "luci/luci-app-arwi-dashboard"]
+	path = luci/luci-app-arwi-dashboard
+	url = https://github.com/mdsdtech/luci-app-arwi-dashboard.git
+	branch = custom
