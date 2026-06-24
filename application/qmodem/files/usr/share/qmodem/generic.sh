@@ -191,6 +191,16 @@ get_current_band()
     json_close_object
 }
 
+get_current_band_capabilities()
+{
+    json_add_object "current_band_capabilities"
+    json_add_boolean "supported" 0
+    json_add_string "vendor" "$_Vendor"
+    json_add_string "method" ""
+    json_add_string "schema" "current_band"
+    json_close_object
+}
+
 # Helper function for 3G cell info
 # Usage: set_3g_cell_info mcc mnc lac cell_id uarfcn psc band ul_bw dl_bw rscp rsrq ecio rxlev rac
 set_3g_cell_info() {

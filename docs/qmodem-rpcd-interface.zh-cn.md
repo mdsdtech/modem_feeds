@@ -103,6 +103,24 @@ ubus call qmodem get_neighborcell '{"config_section":"modem1"}'
 ubus call qmodem get_network_prefer '{"config_section":"modem1"}'
 ```
 
+#### get_current_band_capabilities
+查询当前模组厂商适配是否支持 `get_current_band`。
+```bash
+ubus call qmodem get_current_band_capabilities '{"config_section":"modem1"}'
+```
+
+响应示例:
+```json
+{
+  "current_band_capabilities": {
+    "supported": true,
+    "vendor": "fibocom",
+    "method": "AT+GTCCINFO?",
+    "schema": "current_band"
+  }
+}
+```
+
 #### get_current_band
 获取当前连接的服务小区频段。返回结构与厂商无关；第一版支持 Quectel 和 Fibocom。
 ```bash

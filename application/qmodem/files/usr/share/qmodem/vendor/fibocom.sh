@@ -1738,6 +1738,16 @@ EOF
     json_close_object
 }
 
+get_current_band_capabilities()
+{
+    json_add_object "current_band_capabilities"
+    json_add_boolean "supported" 1
+    json_add_string "vendor" "$_Vendor"
+    json_add_string "method" "AT+GTCCINFO?"
+    json_add_string "schema" "current_band"
+    json_close_object
+}
+
 # get sim switch capabilities
 sim_switch_capabilities(){
     case $platform in

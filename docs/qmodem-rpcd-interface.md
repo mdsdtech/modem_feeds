@@ -103,6 +103,24 @@ Get network preference settings.
 ubus call qmodem get_network_prefer '{"config_section":"modem1"}'
 ```
 
+#### get_current_band_capabilities
+Check whether `get_current_band` is supported by the current modem vendor implementation.
+```bash
+ubus call qmodem get_current_band_capabilities '{"config_section":"modem1"}'
+```
+
+Response example:
+```json
+{
+  "current_band_capabilities": {
+    "supported": true,
+    "vendor": "fibocom",
+    "method": "AT+GTCCINFO?",
+    "schema": "current_band"
+  }
+}
+```
+
 #### get_current_band
 Get the currently connected serving band. The response schema is vendor-neutral; Quectel and Fibocom are supported in the first version.
 ```bash
