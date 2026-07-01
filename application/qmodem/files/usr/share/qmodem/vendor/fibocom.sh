@@ -1291,6 +1291,7 @@ get_neighborcell()
         json_add_string "NR BAND" "$nr_band"
     fi
     json_close_object
+    qmodem_lockcell_boot_hook_add_json "$config_section"
     json_close_object
 }
 
@@ -1301,6 +1302,7 @@ set_neighborcell(){
     arfcn=$(echo $json_param | jq -r '.arfcn')
     band=$(echo $json_param | jq -r '.band')
     scs=$(echo $json_param | jq -r '.scs')
+    en_boot_hook=$(echo $json_param | jq -r '.en_boot_hook // empty')
     lockcell_all
     json_select "result"
     json_add_string "setlockcell" "$res"
@@ -1309,6 +1311,11 @@ set_neighborcell(){
     json_add_string "arfcn" "$arfcn"
     json_add_string "band" "$band"
     json_add_string "scs" "$scs"
+    if qmodem_bool_enabled "$(uci -q get "qmodem.${config_section}.lockcell_boot_hook_enabled")"; then
+        json_add_boolean "boot_hook_enabled" 1
+    else
+        json_add_boolean "boot_hook_enabled" 0
+    fi
     json_close_object
 }
 
@@ -1317,6 +1324,7 @@ lockcell_all(){
         local unlockcell="AT+GTCELLLOCK=0"
         res1=$(at $at_port $unlockcell)
         res=$res1
+        qmodem_lockcell_boot_hook_clear "$config_section"
     else
         if [ -z "$pci" ] && [ -n "$arfcn" ]; then
             lockpci_nr="AT+GTCELLLOCK=1,1,1,$arfcn"
@@ -1333,10 +1341,12 @@ lockcell_all(){
             lockpci_lte="AT+GTCELLLOCK=1"
         fi
         if [ "$rat" = "1" ]; then
-            res=$(at $at_port $lockpci_nr)
+            lockcell_boot_cmd="$lockpci_nr"
         elif [ "$rat" = "0" ]; then
-            res=$(at $at_port $lockpci_lte)
+            lockcell_boot_cmd="$lockpci_lte"
         fi
+        res=$(at $at_port "$lockcell_boot_cmd")
+        qmodem_lockcell_boot_hook_sync "$config_section" "$en_boot_hook" "$lockcell_boot_cmd"
     fi
 }
 
