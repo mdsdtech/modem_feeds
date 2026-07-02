@@ -2614,6 +2614,7 @@ static const struct usb_device_id products[] = {
 	{ QMI_FIXED_RAWIP_INTF(0x2C7C, 0x0296, 4, mdm9x07) },  /* Quectel BG96 */
 	{ QMI_FIXED_RAWIP_INTF(0x2C7C, 0x0435, 4, mdm9x07) },  /* Quectel AG35 */
 	{ QMI_FIXED_RAWIP_INTF(0x2C7C, 0x0455, 2, mdm9x40) },  /* Quectel AG551 */
+	{ QMI_FIXED_RAWIP_INTF(0x2C7C, 0x0457, 2, mdm9x40) },  /* Quectel AG598 */
 	{ QMI_FIXED_RAWIP_INTF(0x2C7C, 0x0620, 4, mdm9x40) },  /* Quectel EG20 */
 	{ QMI_FIXED_RAWIP_INTF(0x2C7C, 0x0316, 3, mdm9x40) },  /* Quectel RG255 */
 	{ QMI_FIXED_RAWIP_INTF(0x2C7C, 0x0800, 4, sdx55) },  /* Quectel RG500 */
