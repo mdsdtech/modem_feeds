@@ -25,8 +25,7 @@ stop_service(){
 }
 
 reload_service(){
-    stop_service
-    start_service
+    rc_procd start_service
 }
 
 load_led_services()
