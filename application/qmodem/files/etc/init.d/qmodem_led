@@ -16,39 +16,22 @@ service_triggers()
 	procd_add_reload_trigger qmodem qmodem_led
 }
 
-load_network_instances()
+modem_path_present()
 {
-	RUNNING_MODEMS="$(
-		ubus call service list '{"name":"qmodem_network"}' 2>/dev/null |
-			jq -r '.qmodem_network.instances // {} |
-				[to_entries[] | select(.value.running == true) |
-				.key | sub("^modem_"; "")] | join(" ")' 2>/dev/null
-	)"
-}
+	local path="${1%/}"
 
-network_instance_running()
-{
-	case " $RUNNING_MODEMS " in
-		*" $1 "*) return 0 ;;
-		*) return 1 ;;
-	esac
+	[ -n "$path" ] && [ -e "$path" ]
 }
 
 consider_modem()
 {
 	local section="$1"
-	local state enabled path physical metric
+	local path physical metric
 
-	state="$(uci -q get "qmodem.${section}.state")"
-	[ "$state" = disabled ] && return 0
-	enabled="$(uci -q get "qmodem.${section}.enable_dial")"
-	case "$enabled" in
-		0|off|false|no|disabled) return 0 ;;
-	esac
-	network_instance_running "$section" || return 0
+	path="$(uci -q get "qmodem.${section}.path")"
+	modem_path_present "$path" || return 0
 
 	if [ "$TARGET_BIND" = port ]; then
-		path="$(uci -q get "qmodem.${section}.path")"
 		path="${path%/}"
 		physical="${path##*/}"
 		[ "$physical" = "$TARGET_PORT" ] || return 0
@@ -68,7 +51,7 @@ resolve_led_target()
 {
 	local bind="$1"
 	local port="$2"
-	local global_enabled section modem_sections
+	local section modem_sections
 
 	LED_TARGET=
 	LED_TARGET_FOUND=0
@@ -86,10 +69,6 @@ resolve_led_target()
 	SELECTED_METRIC=256
 	TARGET_BIND="$bind"
 	TARGET_PORT="$port"
-	global_enabled="$(uci -q get qmodem.main.enable_dial)"
-	case "$global_enabled" in
-		0|off|false|no|disabled) return 0 ;;
-	esac
 	modem_sections="$(
 		uci -q show qmodem | sed -n \
 			-e "s/^qmodem\.\([A-Za-z0-9_]*\)=modem-device$/\1/p" \
@@ -134,7 +113,6 @@ print_led_state()
 get_led_state()
 {
 	uci -q show qmodem_led | sed 's/^/config|/'
-	load_network_instances
 	config_load qmodem_led
 	config_foreach print_led_state led
 }
