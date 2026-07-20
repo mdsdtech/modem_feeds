@@ -3,7 +3,7 @@
 . /usr/share/qmodem/led_scripts/connectivity.sh
 . /usr/share/qmodem/led_scripts/misectel_led.sh
 
-ON_OFF="$2"
+ON_OFF="$1"
 
 misectel_led_init || exit 1
 if [ "$ON_OFF" = off ]; then

@@ -33,18 +33,18 @@ modem_path_present()
 	esac
 }
 
-resolve_led_target any ''
+resolve_modem_target any ''
 [ "$LED_TARGET_FOUND:$LED_TARGET" = '1:modem_b' ]
 
-resolve_led_target port 2-1
+resolve_modem_target port 2-1
 [ "$LED_TARGET_FOUND:$LED_TARGET" = '1:modem_a' ]
 
 MOCK_B_PRESENT=0
-resolve_led_target any ''
+resolve_modem_target any ''
 [ "$LED_TARGET_FOUND:$LED_TARGET" = '1:modem_a' ]
 
-resolve_led_target none ''
-[ "$LED_TARGET_FOUND" = 1 ]
-[ -z "$LED_TARGET" ]
+if resolve_modem_target none ''; then
+	exit 1
+fi
 
 echo 'qmodem_led selector tests passed'
