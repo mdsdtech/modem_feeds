@@ -82,3 +82,15 @@ internet_leds_off()
 	led_turn "$LED_INTERNET_BLUE" 0
 	led_turn "$LED_INTERNET_RED" 0
 }
+
+internet_led_connected()
+{
+	led_turn "$LED_INTERNET_RED" 0
+	led_turn "$LED_INTERNET_BLUE" 1
+}
+
+internet_led_disconnected()
+{
+	led_turn "$LED_INTERNET_BLUE" 0
+	led_turn "$LED_INTERNET_RED" 1
+}
