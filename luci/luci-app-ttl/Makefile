@@ -6,18 +6,12 @@
 
 include $(TOPDIR)/rules.mk
 
-LUCI_TITLE:=HiGoWRT Theme
-LUCI_DEPENDS:=+luci-base
+LUCI_TITLE:=Antitethering module for luci-app-firewall
+#LUCI_DEPENDS:= +luci-app-firewall
 
 PKG_LICENSE:=Apache-2.0
-
-define Package/luci-theme-higowrt/postrm
-#!/bin/sh
-[ -n "$${IPKG_INSTROOT}" ] || {
-	uci -q delete luci.themes.HiGoWRT
-	uci commit luci
-}
-endef
+PKG_VERSION:=0.0.7
+PKG_RELEASE:=3
 
 include $(TOPDIR)/feeds/luci/luci.mk
 
