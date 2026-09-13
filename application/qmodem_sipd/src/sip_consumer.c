@@ -20,10 +20,9 @@
 
 #include "sip_gateway.h"
 #include "sip_activation.h"
+#include "g711.h"
 #include "media_socket_client.h"
 #include "rtp_transport.h"
-
-#include <spandsp.h>
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -134,31 +133,23 @@ struct consumer {
 static int g711_bridge_encode(enum qmodem_voip_media_codec codec,
 		       const int16_t *input, size_t samples, uint8_t *output)
 {
-	g711_state_t *state;
-	int result;
 	if (codec != QMODEM_VOIP_MEDIA_PCMA && codec != QMODEM_VOIP_MEDIA_PCMU)
 		return -1;
-	state = g711_init(NULL, codec == QMODEM_VOIP_MEDIA_PCMA ? G711_ALAW : G711_ULAW);
-	if (!state)
-		return -1;
-	result = g711_encode(state, output, input, (int)samples);
-	(void)g711_free(state);
-	return result == (int)samples ? 0 : -1;
+	for (size_t i = 0; i < samples; i++)
+		output[i] = codec == QMODEM_VOIP_MEDIA_PCMA
+			? qmodem_g711_alaw_encode(input[i]) : qmodem_g711_ulaw_encode(input[i]);
+	return 0;
 }
 
 static int g711_bridge_decode(enum qmodem_voip_media_codec codec,
 		       const uint8_t *input, size_t samples, int16_t *output)
 {
-	g711_state_t *state;
-	int result;
 	if (codec != QMODEM_VOIP_MEDIA_PCMA && codec != QMODEM_VOIP_MEDIA_PCMU)
 		return -1;
-	state = g711_init(NULL, codec == QMODEM_VOIP_MEDIA_PCMA ? G711_ALAW : G711_ULAW);
-	if (!state)
-		return -1;
-	result = g711_decode(state, output, input, (int)samples);
-	(void)g711_free(state);
-	return result == (int)samples ? 0 : -1;
+	for (size_t i = 0; i < samples; i++)
+		output[i] = codec == QMODEM_VOIP_MEDIA_PCMA
+			? qmodem_g711_alaw_decode(input[i]) : qmodem_g711_ulaw_decode(input[i]);
+	return 0;
 }
 
 static struct consumer app;
