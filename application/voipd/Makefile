@@ -20,7 +20,7 @@ define Package/$(PKG_NAME)
   DEPENDS:=+libubus +libubox +libblobmsg-json +libjson-c +libuci +uci +jsonfilter +jshn +adb \
 	+alsa-lib +libspandsp3 +libsoxr \
 	+PACKAGE_libwebsockets-full:libwebsockets-full \
-	+!PACKAGE_libwebsockets-full:libwebsockets-mbedtls +px5g-mbedtls \
+	+!PACKAGE_libwebsockets-full:libwebsockets-openssl +px5g-mbedtls \
 	+kmod-usb-serial +kmod-usb-serial-option
 endef
 
