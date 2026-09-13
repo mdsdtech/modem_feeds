@@ -18,7 +18,9 @@ define Package/$(PKG_NAME)
   CATEGORY:=Utilities
   TITLE:=QModem VoIP daemon (experimental)
   DEPENDS:=+libubus +libubox +libblobmsg-json +libjson-c +libuci +uci +jsonfilter +jshn +adb \
-	+alsa-lib +libspandsp3 +libsoxr +libwebsockets-mbedtls +px5g-mbedtls \
+	+alsa-lib +libspandsp3 +libsoxr \
+	+PACKAGE_libwebsockets-full:libwebsockets-full \
+	+!PACKAGE_libwebsockets-full:libwebsockets-mbedtls +px5g-mbedtls \
 	+kmod-usb-serial +kmod-usb-serial-option
 endef
 
