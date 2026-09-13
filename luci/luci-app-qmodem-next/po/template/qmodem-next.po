@@ -1790,6 +1790,7 @@ msgstr ""
 #: vendor/simcom.sh:255
 #: vendor/telit.sh:154
 #: vendor/thales.sh:42
+#: view/qmodem/settings.js:375
 msgid "Manufacturer"
 msgstr ""
 
@@ -3457,10 +3458,6 @@ msgstr ""
 #: view/qmodem/debug.js:140
 #: view/qmodem/settings.js:368
 msgid "Use Ubus AT Daemon"
-msgstr ""
-
-#: view/qmodem/settings.js:375
-msgid "Vendor"
 msgstr ""
 
 #: view/qmodem/network_config.js:281
