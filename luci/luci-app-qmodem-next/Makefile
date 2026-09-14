@@ -11,7 +11,8 @@ PKGARCH:=all
 PKG_RELEASE:=1
 PKG_MAINTAINER:=Tom <fjrcn@outlook.com>
 PKG_LICENSE:=GPLv3
-PKG_DEPENDS:=+qmodem +qmodem-smsd +luci-base +sms-forwarder-next
+PKG_DEPENDS:=+qmodem +qmodem-smsd +sms-forwarder-next
+PKG_RECOMMENDS:=+luci-base
 PKG_VERSION:=$(QMODEM_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
@@ -21,6 +22,7 @@ define Package/$(PKG_NAME)
   CATEGORY:=LuCI
   TITLE:=LuCI Modern UI for QModem
   DEPENDS:=$(PKG_DEPENDS)
+  RECOMMENDS:=$(PKG_RECOMMENDS)
   PKGARCH:=all
 endef
 
