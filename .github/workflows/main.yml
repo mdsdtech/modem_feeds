@@ -284,6 +284,7 @@ jobs:
           cd sdk
           ./scripts/feeds update qmodem
           ./scripts/feeds install -a -p qmodem
+          rm -rf feeds/base/package/kernel/gpio-button-hotplug
           echo "CONFIG_ALL_NONSHARED=n" > .config
           echo "CONFIG_ALL_KMODS=n" >> .config
           echo "CONFIG_ALL=n" >> .config
@@ -304,6 +305,7 @@ jobs:
           cd sdk
           ./scripts/feeds update qmodem
           ./scripts/feeds install -a -p qmodem
+          rm -rf feeds/base/package/kernel/gpio-button-hotplug
           generic_package=$(cat ../qmodem/.github/workflows/qmodem_package_generic)
           arch_package=$(cat ../qmodem/.github/workflows/qmodem_package_arch)
           for package in $generic_package; do
