@@ -517,51 +517,59 @@ set_lockband_qualcomm()
 
     if [ -z "$lock_band" ] || [ "$lock_band" = "null" ]; then
         res=$(cmd_zband_reset_all_qualcomm "$at_port")
-    else
-        local band_list=$(echo "$lock_band" | tr ',' '\n' | sort -n | uniq)
-        local band_count=$(echo "$band_list" | wc -l)
-        local bad_band=0
-        local band
-        case "$band_list" in
-            *[!0-9]*) bad_band=1 ;;
-        esac
-        if [ "$band_count" -lt 1 ] || [ "$band_count" -gt 10 ]; then
-            res="ERROR: ZBAND supports 1-10 bands per command"
-        elif [ "$bad_band" -ne 0 ]; then
-            res="ERROR: invalid band list"
-        else
-            for band in "$band_list"; do
-                if [ "$band" -lt 1 ] || [ "$band" -gt 320 ]; then
-                    bad_band=1
-                    break
-                fi
-            done
-            if [ "$bad_band" -ne 0 ]; then
-                res="ERROR: band must be in range 1-320"
-            else
-                case "$band_class" in
-                    "UMTS")
-                        res=$(cmd_zband_set_qualcomm "$at_port" "3" "$band_count" "$bands")
-                        ;;
-                    "TDSCDMA")
-                        res=$(cmd_zband_set_qualcomm "$at_port" "2" "$band_count" "$bands")
-                        ;;
-                    "GSM")
-                        res=$(cmd_zband_set_qualcomm "$at_port" "4" "$band_count" "$bands")
-                        ;;
-                    "LTE")
-                        res=$(cmd_zband_set_qualcomm "$at_port" "1" "$band_count" "$bands")
-                        ;;
-                    "NR"|"NR_NSA")
-                        res=$(cmd_zband_set_qualcomm "$at_port" "5" "$band_count" "$bands")
-                        ;;
-                    *)
-                        res="ERROR: unsupported band_class: $band_class"
-                        ;;
-                esac
-            fi
-        fi
+        return
     fi
+
+    case "$lock_band" in
+        *[!0-9,]*)
+            res="ERROR: invalid band list"
+            return
+            ;;
+    esac
+
+    local band_list=$(echo "$lock_band" | tr ',' '\n' | grep -v '^$' | sort -n | uniq)
+
+    if [ -z "$band_list" ]; then
+        res="ERROR: invalid band list"
+        return
+    fi
+
+    local band_count=$(echo "$band_list" | wc -l)
+
+    if [ "$band_count" -lt 1 ] || [ "$band_count" -gt 10 ]; then
+        res="ERROR: ZBAND supports 1-10 bands per command"
+        return
+    fi
+
+    for band in $band_list; do
+        if [ "$band" -lt 1 ] || [ "$band" -gt 320 ]; then
+            res="ERROR: band must be in range 1-320"
+            return
+        fi
+    done
+
+    local clean_lock_band=$(echo "$band_list" | tr '\n' ',')
+    clean_lock_band="${clean_lock_band%,}"
+    case "$band_class" in
+        "UMTS")
+            res=$(cmd_zband_set_qualcomm "$at_port" "3" "$band_count" "$clean_lock_band")
+            ;;
+        "TDSCDMA")
+            res=$(cmd_zband_set_qualcomm "$at_port" "2" "$band_count" "$clean_lock_band")
+            ;;
+        "GSM")
+            res=$(cmd_zband_set_qualcomm "$at_port" "4" "$band_count" "$clean_lock_band")
+            ;;
+        "LTE")
+            res=$(cmd_zband_set_qualcomm "$at_port" "1" "$band_count" "$clean_lock_band")
+            ;;
+        "NR"|"NR_NSA")
+            res=$(cmd_zband_set_qualcomm "$at_port" "5" "$band_count" "$clean_lock_band")
+            ;;
+        *)
+            res="ERROR: unsupported band_class: $band_class"
+            ;;
+    esac
 }
 
 #SIM卡信息
