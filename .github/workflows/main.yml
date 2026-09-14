@@ -297,6 +297,9 @@ jobs:
           # unavailable legacy GPIO module exclusion immediately before build.
           sed -i '/^CONFIG_PACKAGE_gpio-button-hotplug=/d' .config
           echo 'CONFIG_PACKAGE_gpio-button-hotplug=n' >> .config
+          sed -i '/^CONFIG_PACKAGE_libopenssl=/d;/^CONFIG_PACKAGE_openssl-util=/d' .config
+          echo 'CONFIG_PACKAGE_libopenssl=n' >> .config
+          echo 'CONFIG_PACKAGE_openssl-util=n' >> .config
 
       - name: Compile QModem
         id: compile
