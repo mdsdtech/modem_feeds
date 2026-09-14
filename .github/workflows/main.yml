@@ -291,11 +291,11 @@ jobs:
           echo "CONFIG_LUCI_LANG_zh_Hans=y" >> .config
           cat ../qmodem/.github/workflows/openwrt_package.config >> .config
           make defconfig
-          # Keep the unavailable legacy GPIO hotplug module out of the SDK
-          # dependency graph; none of the QModem packages require it.
+          make clean
+          # make clean may regenerate package selections; enforce the
+          # unavailable legacy GPIO module exclusion immediately before build.
           sed -i '/^CONFIG_PACKAGE_gpio-button-hotplug=/d' .config
           echo 'CONFIG_PACKAGE_gpio-button-hotplug=n' >> .config
-          make clean
 
       - name: Compile QModem
         id: compile
