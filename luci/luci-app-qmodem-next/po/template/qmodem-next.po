@@ -1360,7 +1360,7 @@ msgstr ""
 msgid "Freq band indicator"
 msgstr ""
 
-#: qmodem/sms.js:124
+#: qmodem/sms.js:131
 msgid "Friday"
 msgstr ""
 
@@ -1985,7 +1985,7 @@ msgstr ""
 msgid "Modem device removed successfully"
 msgstr ""
 
-#: qmodem/sms.js:124
+#: qmodem/sms.js:131
 msgid "Monday"
 msgstr ""
 
@@ -2895,7 +2895,7 @@ msgstr ""
 msgid "SMS storage settings applied successfully"
 msgstr ""
 
-#: qmodem/sms.js:124
+#: qmodem/sms.js:131
 msgid "Saturday"
 msgstr ""
 
@@ -3185,7 +3185,7 @@ msgstr ""
 msgid "Summary"
 msgstr ""
 
-#: qmodem/sms.js:124
+#: qmodem/sms.js:131
 msgid "Sunday"
 msgstr ""
 
@@ -3290,7 +3290,7 @@ msgstr ""
 msgid "This modem does not support SIM switching."
 msgstr ""
 
-#: qmodem/sms.js:124
+#: qmodem/sms.js:131
 msgid "Thursday"
 msgstr ""
 
@@ -3349,7 +3349,7 @@ msgstr ""
 msgid "Try Preset USB Port"
 msgstr ""
 
-#: qmodem/sms.js:124
+#: qmodem/sms.js:131
 msgid "Tuesday"
 msgstr ""
 
@@ -3518,7 +3518,7 @@ msgstr ""
 msgid "Webhook URL"
 msgstr ""
 
-#: qmodem/sms.js:124
+#: qmodem/sms.js:131
 msgid "Wednesday"
 msgstr ""
 
@@ -3538,7 +3538,7 @@ msgstr ""
 msgid "Yes"
 msgstr ""
 
-#: qmodem/sms.js:123
+#: qmodem/sms.js:130
 msgid "Yesterday"
 msgstr ""
 
