@@ -68,7 +68,7 @@ jobs:
         fi
 
         case "${GITHUB_REF#refs/heads/}:$version" in
-          main:*-[0-9a-zA-Z]*) ;;
+          main:*[_-][0-9a-zA-Z]*) ;;
           stable:[0-9]*.[0-9]*.[0-9]*) ;;
           *)
             echo "QMODEM_VERSION does not match its release branch: ${GITHUB_REF#refs/heads/}:$version" >&2
@@ -160,7 +160,7 @@ jobs:
             "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
           tag_commit="$(git rev-list -n 1 "refs/tags/${GITHUB_REF_NAME}")"
           case "${GITHUB_REF_NAME}" in
-            *-rc.*|*-beta.*)
+            *-rc.*|*-beta.*|*_rc*|*_beta*)
               git merge-base --is-ancestor "$tag_commit" origin/main || {
                 echo "pre-release tags must point to main" >&2
                 exit 1
@@ -201,7 +201,6 @@ jobs:
     name: Build QModem
     needs: [job_prepare]
     if: ${{ always() && needs.job_prepare.result == 'success' }}
-    continue-on-error: true
     strategy:
       matrix:
         build_arch: ['arm64_ipk',"arm64_apk","x64_apk","x64_ipk","mmips_ipk","mmips_apk" ]
@@ -293,25 +292,37 @@ jobs:
           cat ../qmodem/.github/workflows/openwrt_package.config >> .config
           make defconfig
           make clean
-          make download -j$(nproc) || true
+          make download -j$(nproc)
 
       - name: Compile QModem
         id: compile
         run: |
+          set -euo pipefail
           cd sdk
           ./scripts/feeds update qmodem
           ./scripts/feeds install -a -p qmodem
           generic_package=$(cat ../qmodem/.github/workflows/qmodem_package_generic)
           arch_package=$(cat ../qmodem/.github/workflows/qmodem_package_arch)
           for package in $generic_package; do
-            make package/$package/compile -j$(nproc) || true
+            make package/$package/compile -j$(nproc)
           done
           for package in $arch_package; do
-            make package/$package/compile -j$(nproc) || true
+            make package/$package/compile -j$(nproc)
           done
-          ls bin/packages/${{ env.SDK_ARCH }}/qmodem/
+          package_dir="bin/packages/${{ env.SDK_ARCH }}/qmodem"
+          required_packages=(
+            qmodem qmodem-smsd sms-forwarder-next
+            luci-app-qmodem-sms luci-app-qmodem-next
+          )
+          for package in "${required_packages[@]}"; do
+            compgen -G "$package_dir/${package}[-_]*" >/dev/null || {
+              echo "missing required release package: $package" >&2
+              exit 1
+            }
+          done
+          ls "$package_dir"
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "FIRMWARE=$(pwd)/bin/packages/${{ env.SDK_ARCH }}/qmodem/" >> $GITHUB_ENV
+          echo "FIRMWARE=$(pwd)/$package_dir/" >> $GITHUB_ENV
 
       - name: Upload QModem
         if: ${{ steps.compile.outputs.status == 'success' }}
@@ -327,11 +338,12 @@ jobs:
     runs-on: ubuntu-latest
     # job_prepare recognizes both direct tag pushes and tags created by
     # job_auto_tag during a stable branch run.
-    if: ${{ always() && needs.job_prepare.result == 'success' && needs.job_prepare.outputs.push_type == 'tag' }}
+    if: ${{ always() && needs.job_prepare.result == 'success' && needs.job_build_qmodem.result == 'success' && needs.job_prepare.outputs.push_type == 'tag' }}
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: QModem-*
           path: artifacts
         
       - name: Download Release Note
@@ -359,5 +371,5 @@ jobs:
           body_path: release_note/release_note.md
           generate_release_notes: true
           tag_name: ${{ needs.job_prepare.outputs.tag_name }}
-          prerelease: ${{ contains(needs.job_prepare.outputs.tag_name, '-beta') || contains(needs.job_prepare.outputs.tag_name, '-rc') }}
+          prerelease: ${{ contains(needs.job_prepare.outputs.tag_name, '-beta') || contains(needs.job_prepare.outputs.tag_name, '-rc') || contains(needs.job_prepare.outputs.tag_name, '_beta') || contains(needs.job_prepare.outputs.tag_name, '_rc') }}
           files: releases/*
