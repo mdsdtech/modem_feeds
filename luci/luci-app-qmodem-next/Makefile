@@ -8,7 +8,7 @@ include ../../version.mk
 
 PKG_NAME:=luci-app-qmodem-next
 PKGARCH:=all
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 PKG_MAINTAINER:=Tom <fjrcn@outlook.com>
 PKG_LICENSE:=GPLv3
 PKG_DEPENDS:=+qmodem +qmodem-smsd +sms-forwarder-next
@@ -38,6 +38,7 @@ endef
 
 define Package/$(PKG_NAME)/install
 	$(CP) ./root/* $(1)/
+	$(INSTALL_DIR) $(1)/www
 	$(CP) ./htdocs/* $(1)/www/
 endef
 
