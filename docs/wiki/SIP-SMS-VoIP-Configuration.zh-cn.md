@@ -9,7 +9,7 @@
 ```sh
 apk add qmodem-voip qmodem-smsd qmodem-sipd
 /etc/init.d/qmodem_voip enable
-/etc/init.d/qmodem_smsd enable
+/etc/init.d/qmodem-smsd enable
 /etc/init.d/qmodem_voip_sipd enable
 ```
 
@@ -42,7 +42,7 @@ main 分支中新建的 modem 配置默认使用 ubus AT 通道。已有配置�
 uci set qmodem.modem_1.use_ubus='1'
 uci set qmodem.modem_1.sms_mode='database_poll'
 uci commit qmodem
-/etc/init.d/qmodem_smsd restart
+/etc/init.d/qmodem-smsd restart
 ```
 
 SIP MESSAGE 转蜂窝短信必须使用 SMSD 数据库模式，并通过带幂等 `request_id` 的
