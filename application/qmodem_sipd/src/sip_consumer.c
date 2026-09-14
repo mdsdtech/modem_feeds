@@ -21,6 +21,7 @@
 #include "sip_gateway.h"
 #include "sip_activation.h"
 #include "g711.h"
+#include "sip_registration.h"
 #include "media_socket_client.h"
 #include "rtp_transport.h"
 
@@ -116,6 +117,8 @@ struct consumer {
 	unsigned outbound_port;
 	unsigned outbound_interval;
 	int outbound_registered;
+	struct uloop_timeout outbound_register_retry;
+	struct qmodem_voip_sip_registration_retry registration_retry;
 	char direction[9];
 	char pidfile[128];
 	char sms_modem[64];
@@ -159,6 +162,30 @@ static int rtp_open(void);
 static int attach_media(void);
 static void outbound_register(void);
 
+static uint32_t registration_retry_entropy(void)
+{
+	struct timespec now;
+	uint64_t entropy = (uint64_t)getpid() ^ app.registration_retry.failures;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &now) == 0)
+		entropy ^= (uint64_t)now.tv_sec ^ (uint64_t)now.tv_nsec;
+	return (uint32_t)(entropy ^ (entropy >> 32));
+}
+
+static void schedule_outbound_register_retry(void)
+{
+	unsigned delay;
+
+	if (!running || !app.outbound || app.outbound_register_retry.pending)
+		return;
+	delay = qmodem_voip_sip_registration_failed(&app.registration_retry,
+		registration_retry_entropy());
+	uloop_timeout_set(&app.outbound_register_retry, (int)delay);
+	syslog(LOG_WARNING,
+		"qmodem_voip sip: outbound REGISTER retry scheduled in %u ms",
+		delay);
+}
+
 static void outbound_regc_cb(struct pjsip_regc_cbparam *param)
 {
 	if (!param)
@@ -166,8 +193,11 @@ static void outbound_regc_cb(struct pjsip_regc_cbparam *param)
 	app.outbound_registered = param->status == PJ_SUCCESS &&
 		param->code >= 200 && param->code < 300 && param->expiration > 0;
 	if (app.outbound_registered) {
+		uloop_timeout_cancel(&app.outbound_register_retry);
+		qmodem_voip_sip_registration_succeeded(&app.registration_retry);
 		if (strlen(app.outbound_aor) >= sizeof(app.binding)) {
 			app.outbound_registered = 0;
+			schedule_outbound_register_retry();
 			return;
 		}
 		(void)snprintf(app.binding, sizeof(app.binding), "%s", app.outbound_aor);
@@ -181,6 +211,7 @@ static void outbound_regc_cb(struct pjsip_regc_cbparam *param)
 		app.expires = 0;
 		syslog(LOG_WARNING, "qmodem_voip sip: outbound REGISTER failed status=%d code=%d",
 			(int)param->status, param->code);
+		schedule_outbound_register_retry();
 	}
 }
 
@@ -221,12 +252,27 @@ static void outbound_register(void)
 {
 	pjsip_tx_data *request = NULL;
 	pj_status_t status;
-	if (!app.outbound || !app.regc || pjsip_regc_register(app.regc, PJ_TRUE, &request) != PJ_SUCCESS)
+	if (!app.outbound || !app.regc)
 		return;
+	qmodem_voip_sip_registration_attempt(&app.registration_retry);
+	if (pjsip_regc_register(app.regc, PJ_TRUE, &request) != PJ_SUCCESS) {
+		syslog(LOG_WARNING, "qmodem_voip sip: outbound REGISTER request creation failed");
+		schedule_outbound_register_retry();
+		return;
+	}
 	status = pjsip_regc_send(app.regc, request);
-	if (status != PJ_SUCCESS)
+	if (status != PJ_SUCCESS) {
 		syslog(LOG_WARNING, "qmodem_voip sip: outbound REGISTER send failed status=%d",
 			(int)status);
+		schedule_outbound_register_retry();
+	}
+}
+
+static void outbound_register_retry(struct uloop_timeout *timeout)
+{
+	(void)timeout;
+	qmodem_voip_sip_registration_retry_started(&app.registration_retry);
+	outbound_register();
 }
 
 static void stop_handler(int signo)
@@ -1302,6 +1348,16 @@ static int sip_status_method(struct ubus_context *context, struct ubus_object *o
 	blobmsg_add_string(&buffer, "direction", app.direction);
 	blobmsg_add_u8(&buffer, "registered",
 		app.outbound ? app.outbound_registered : binding_active());
+	if (app.outbound) {
+		blobmsg_add_u64(&buffer, "registration_attempts",
+			app.registration_retry.attempts);
+		blobmsg_add_u64(&buffer, "registration_failures",
+			app.registration_retry.failures);
+		blobmsg_add_u8(&buffer, "retry_scheduled",
+			app.outbound_register_retry.pending);
+		blobmsg_add_u32(&buffer, "retry_delay_ms",
+			app.registration_retry.scheduled_delay_ms);
+	}
 	blobmsg_add_u8(&buffer, "voipd_available",
 		ubus_lookup_id(context, "qmodem_voip", &id) == 0);
 	blobmsg_add_u8(&buffer, "smsd_available",
@@ -1881,6 +1937,8 @@ int main(int argc, char **argv)
 	app.rtp_fd_event.fd = -1;
 	app.rtp_fd = -1;
 	app.media_attach_timeout.cb = media_attach_retry;
+	app.outbound_register_retry.cb = outbound_register_retry;
+	qmodem_voip_sip_registration_retry_init(&app.registration_retry);
 	app.media_revision = (uint64_t)time(NULL);
 	if (!app.outbound && load_credentials() != 0) {
 		return 2;
@@ -1995,6 +2053,7 @@ int main(int argc, char **argv)
 	}
 	(void)unlink(app.pidfile);
 	uloop_timeout_cancel(&app.media_attach_timeout);
+	uloop_timeout_cancel(&app.outbound_register_retry);
 	stop_media();
 	remember_outbound_invite(NULL);
 	uloop_done();
