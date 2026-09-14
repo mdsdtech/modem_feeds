@@ -296,7 +296,6 @@ jobs:
           sed -i '/^CONFIG_PACKAGE_gpio-button-hotplug=/d' .config
           echo 'CONFIG_PACKAGE_gpio-button-hotplug=n' >> .config
           make clean
-          make download -j$(nproc)
 
       - name: Compile QModem
         id: compile
