@@ -135,4 +135,4 @@ n510m | unisoc |✔ usb(ecm) | ✘
 Model | Platform | USB  | PCIe 
 --- | --- | --- | ---
 me3630-w | lte |✔ usb(ecm) | ✘
-gm800/gm801 | qualcomm |✔ usb(mbim,rndis,qmi,ecm) | ✔ pcie(mbim)
+gm800 | qualcomm |✔ usb(qmi,ecm,mbim,rndis) | ✔ pcie(mbim)
