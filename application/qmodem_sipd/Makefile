@@ -41,7 +41,8 @@ define Build/Compile
 		-Wall -Wextra -Werror -std=gnu11 \
 		-o $(PKG_BUILD_DIR)/qmodem_voip_sip_consumer \
 		$(PKG_BUILD_DIR)/sip_consumer.c $(PKG_BUILD_DIR)/sip_gateway.c \
-		$(PKG_BUILD_DIR)/sip_activation.c $(PKG_BUILD_DIR)/media_socket_client.c \
+		$(PKG_BUILD_DIR)/sip_activation.c $(PKG_BUILD_DIR)/sip_registration.c \
+		$(PKG_BUILD_DIR)/media_socket_client.c \
 		$(TARGET_LDFLAGS) \
 		-lpjsip -lpjsip-ua -lpjlib-util -lpj -lsoxr -lasound \
 		-lubus -lubox -lblobmsg_json -ljson-c -lm
