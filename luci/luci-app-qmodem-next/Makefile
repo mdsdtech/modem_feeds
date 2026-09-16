@@ -38,6 +38,7 @@ endef
 
 define Package/$(PKG_NAME)/install
 	$(CP) ./root/* $(1)/
+	$(INSTALL_DIR) $(1)/www
 	$(CP) ./htdocs/* $(1)/www/
 endef
 
