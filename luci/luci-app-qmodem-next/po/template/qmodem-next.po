@@ -5,8 +5,8 @@ msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 
-#: vendor/gosuncn.sh:500
-#: vendor/gosuncn.sh:515
+#: vendor/gosuncn.sh:498
+#: vendor/gosuncn.sh:513
 msgid "$1"
 msgstr ""
 
@@ -91,7 +91,7 @@ msgstr ""
 
 #: vendor/fibocom.sh:789
 #: vendor/foxconn.sh:310
-#: vendor/gosuncn.sh:634
+#: vendor/gosuncn.sh:626
 #: vendor/huawei.sh:272
 #: vendor/meig.sh:229
 #: vendor/neoway.sh:155
@@ -309,10 +309,8 @@ msgstr ""
 #: generic.sh:300
 #: vendor/foxconn.sh:579
 #: vendor/foxconn.sh:626
-#: vendor/gosuncn.sh:748
-#: vendor/gosuncn.sh:757
-#: vendor/gosuncn.sh:827
-#: vendor/gosuncn.sh:836
+#: vendor/gosuncn.sh:740
+#: vendor/gosuncn.sh:749
 #: vendor/huawei.sh:375
 #: vendor/huawei.sh:506
 #: vendor/huawei.sh:524
@@ -355,7 +353,7 @@ msgstr ""
 
 #: vendor/fibocom.sh:785
 #: vendor/foxconn.sh:307
-#: vendor/gosuncn.sh:620
+#: vendor/gosuncn.sh:612
 #: vendor/huawei.sh:268
 #: vendor/meig.sh:225
 #: vendor/neoway.sh:151
@@ -408,7 +406,7 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: vendor/gosuncn.sh:655
+#: vendor/gosuncn.sh:647
 #: vendor/openluat.sh:1000
 msgid "Carrier"
 msgstr ""
@@ -431,10 +429,8 @@ msgstr ""
 #: generic.sh:297
 #: vendor/foxconn.sh:575
 #: vendor/foxconn.sh:631
-#: vendor/gosuncn.sh:746
-#: vendor/gosuncn.sh:755
-#: vendor/gosuncn.sh:825
-#: vendor/gosuncn.sh:834
+#: vendor/gosuncn.sh:738
+#: vendor/gosuncn.sh:747
 #: vendor/huawei.sh:371
 #: vendor/huawei.sh:502
 #: vendor/huawei.sh:520
@@ -461,8 +457,8 @@ msgstr ""
 
 #: vendor/fibocom.sh:1719
 #: vendor/foxconn.sh:549
-#: vendor/gosuncn.sh:734
-#: vendor/gosuncn.sh:813
+#: vendor/gosuncn.sh:726
+#: vendor/gosuncn.sh:782
 #: vendor/huawei.sh:365
 #: vendor/huawei.sh:495
 #: vendor/meig.sh:537
@@ -1527,7 +1523,7 @@ msgstr ""
 #: vendor/fibocom.sh:884
 #: vendor/foxconn.sh:280
 #: vendor/foxconn.sh:294
-#: vendor/gosuncn.sh:613
+#: vendor/gosuncn.sh:605
 #: vendor/meig.sh:272
 #: vendor/meig.sh:286
 #: vendor/neoway.sh:206
@@ -1549,8 +1545,8 @@ msgstr ""
 #: vendor/foxconn.sh:278
 #: vendor/foxconn.sh:284
 #: vendor/foxconn.sh:292
-#: vendor/gosuncn.sh:590
-#: vendor/gosuncn.sh:611
+#: vendor/gosuncn.sh:582
+#: vendor/gosuncn.sh:603
 #: vendor/huawei.sh:255
 #: vendor/meig.sh:270
 #: vendor/meig.sh:276
@@ -1575,7 +1571,7 @@ msgstr ""
 #: vendor/fibocom.sh:883
 #: vendor/foxconn.sh:279
 #: vendor/foxconn.sh:293
-#: vendor/gosuncn.sh:612
+#: vendor/gosuncn.sh:604
 #: vendor/huawei.sh:256
 #: vendor/meig.sh:271
 #: vendor/meig.sh:285
@@ -1593,7 +1589,7 @@ msgstr ""
 
 #: vendor/fibocom.sh:865
 #: vendor/foxconn.sh:275
-#: vendor/gosuncn.sh:608
+#: vendor/gosuncn.sh:600
 #: vendor/meig.sh:267
 #: vendor/neoway.sh:201
 #: vendor/openluat.sh:967
@@ -1713,8 +1709,7 @@ msgid "Loading..."
 msgstr ""
 
 #: generic.sh:224
-#: vendor/gosuncn.sh:745
-#: vendor/gosuncn.sh:824
+#: vendor/gosuncn.sh:737
 #: vendor/huawei.sh:566
 #: vendor/meig.sh:600
 #: vendor/neoway.sh:733
@@ -1780,7 +1775,7 @@ msgstr ""
 
 #: vendor/fibocom.sh:787
 #: vendor/foxconn.sh:308
-#: vendor/gosuncn.sh:632
+#: vendor/gosuncn.sh:624
 #: vendor/huawei.sh:270
 #: vendor/meig.sh:227
 #: vendor/neoway.sh:153
@@ -2019,7 +2014,7 @@ msgid "NSA Band"
 msgstr ""
 
 #: vendor/fibocom.sh:786
-#: vendor/gosuncn.sh:631
+#: vendor/gosuncn.sh:623
 #: vendor/huawei.sh:269
 #: vendor/meig.sh:226
 #: vendor/neoway.sh:152
@@ -2045,7 +2040,7 @@ msgstr ""
 
 #: vendor/fibocom.sh:921
 #: vendor/foxconn.sh:317
-#: vendor/gosuncn.sh:653
+#: vendor/gosuncn.sh:645
 #: vendor/meig.sh:359
 #: vendor/neoway.sh:273
 #: vendor/openluat.sh:998
@@ -2064,12 +2059,15 @@ msgstr ""
 #: vendor/fibocom.sh:1720
 #: vendor/foxconn.sh:552
 #: vendor/foxconn.sh:625
-#: vendor/gosuncn.sh:738
-#: vendor/gosuncn.sh:744
-#: vendor/gosuncn.sh:753
-#: vendor/gosuncn.sh:817
-#: vendor/gosuncn.sh:823
-#: vendor/gosuncn.sh:832
+#: vendor/gosuncn.sh:730
+#: vendor/gosuncn.sh:736
+#: vendor/gosuncn.sh:745
+#: vendor/gosuncn.sh:786
+#: vendor/gosuncn.sh:800
+#: vendor/gosuncn.sh:812
+#: vendor/gosuncn.sh:820
+#: vendor/gosuncn.sh:825
+#: vendor/gosuncn.sh:829
 #: vendor/huawei.sh:366
 #: vendor/huawei.sh:496
 #: vendor/meig.sh:538
@@ -2096,7 +2094,7 @@ msgstr ""
 
 #: vendor/fibocom.sh:929
 #: vendor/foxconn.sh:325
-#: vendor/gosuncn.sh:654
+#: vendor/gosuncn.sh:646
 #: vendor/meig.sh:360
 #: vendor/neoway.sh:753
 #: vendor/openluat.sh:999
@@ -2342,8 +2340,7 @@ msgstr ""
 #: generic.sh:298
 #: vendor/foxconn.sh:576
 #: vendor/foxconn.sh:632
-#: vendor/gosuncn.sh:756
-#: vendor/gosuncn.sh:835
+#: vendor/gosuncn.sh:748
 #: vendor/huawei.sh:372
 #: vendor/huawei.sh:503
 #: vendor/huawei.sh:521
@@ -2440,8 +2437,7 @@ msgid "Pre Dial Delay"
 msgstr ""
 
 #: generic.sh:227
-#: vendor/gosuncn.sh:747
-#: vendor/gosuncn.sh:826
+#: vendor/gosuncn.sh:739
 #: vendor/huawei.sh:569
 #: vendor/meig.sh:602
 #: vendor/neoway.sh:736
@@ -2586,12 +2582,11 @@ msgstr ""
 
 #: vendor/fibocom.sh:1760
 #: vendor/foxconn.sh:584
-#: vendor/gosuncn.sh:740
-#: vendor/gosuncn.sh:749
-#: vendor/gosuncn.sh:758
-#: vendor/gosuncn.sh:819
-#: vendor/gosuncn.sh:828
-#: vendor/gosuncn.sh:837
+#: vendor/gosuncn.sh:732
+#: vendor/gosuncn.sh:741
+#: vendor/gosuncn.sh:750
+#: vendor/gosuncn.sh:805
+#: vendor/gosuncn.sh:814
 #: vendor/huawei.sh:554
 #: vendor/neoway.sh:720
 #: vendor/openluat.sh:1121
@@ -2697,7 +2692,7 @@ msgstr ""
 
 #: vendor/fibocom.sh:788
 #: vendor/foxconn.sh:309
-#: vendor/gosuncn.sh:633
+#: vendor/gosuncn.sh:625
 #: vendor/huawei.sh:271
 #: vendor/meig.sh:228
 #: vendor/neoway.sh:154
@@ -2764,7 +2759,7 @@ msgstr ""
 
 #: vendor/fibocom.sh:861
 #: vendor/foxconn.sh:229
-#: vendor/gosuncn.sh:579
+#: vendor/gosuncn.sh:571
 #: vendor/huawei.sh:226
 #: vendor/meig.sh:263
 #: vendor/neoway.sh:197
@@ -2783,7 +2778,7 @@ msgstr ""
 
 #: vendor/fibocom.sh:867
 #: vendor/foxconn.sh:277
-#: vendor/gosuncn.sh:610
+#: vendor/gosuncn.sh:602
 #: vendor/huawei.sh:254
 #: vendor/meig.sh:269
 #: vendor/neoway.sh:203
@@ -2797,7 +2792,7 @@ msgstr ""
 #: vendor/fibocom.sh:881
 #: vendor/foxconn.sh:276
 #: vendor/foxconn.sh:291
-#: vendor/gosuncn.sh:609
+#: vendor/gosuncn.sh:601
 #: vendor/huawei.sh:253
 #: vendor/meig.sh:268
 #: vendor/meig.sh:283
@@ -2822,8 +2817,8 @@ msgstr ""
 #: vendor/foxconn.sh:283
 #: vendor/foxconn.sh:287
 #: vendor/foxconn.sh:290
-#: vendor/gosuncn.sh:589
-#: vendor/gosuncn.sh:607
+#: vendor/gosuncn.sh:581
+#: vendor/gosuncn.sh:599
 #: vendor/huawei.sh:252
 #: vendor/meig.sh:266
 #: vendor/meig.sh:275
@@ -3309,8 +3304,7 @@ msgstr ""
 
 #: generic.sh:260
 #: generic.sh:296
-#: vendor/gosuncn.sh:754
-#: vendor/gosuncn.sh:833
+#: vendor/gosuncn.sh:746
 #: vendor/neoway.sh:714
 #: vendor/openluat.sh:1111
 #: vendor/telit.sh:743
