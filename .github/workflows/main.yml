@@ -322,7 +322,7 @@ jobs:
           package_dir="bin/packages/${{ env.SDK_ARCH }}/qmodem"
           required_packages=(
             qmodem qmodem-smsd sms-forwarder-next
-            luci-app-qmodem-next
+            luci-app-qmodem-next luci-i18n-qmodem-next-zh-cn
           )
           for package in "${required_packages[@]}"; do
             compgen -G "$package_dir/${package}[-_]*" >/dev/null || {
