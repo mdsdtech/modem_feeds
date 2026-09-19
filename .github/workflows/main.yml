@@ -273,10 +273,27 @@ jobs:
             mkdir sdk && tar -xvf $file_name -C ./sdk --strip-components=1
           fi
           cd sdk
-          echo "src-git base https://github.com/openwrt/openwrt.git;main" > feeds.conf
-          echo "src-git packages https://github.com/openwrt/packages.git;master" >> feeds.conf
-          echo "src-git luci https://github.com/openwrt/luci.git;master" >> feeds.conf
-          echo "src-git routing https://git.openwrt.org/feed/routing.git;master"  >> feeds.conf
+          # Feeds must come from the same OpenWrt generation the SDK was built
+          # from. The 23.05 release SDK ships CMake 3.26, while current luci
+          # master requires CMake 3.31, so feeding master into a release SDK
+          # breaks packages such as rpcd-mod-luci. Release SDKs therefore track
+          # their own release branch; snapshot SDKs keep the development feeds.
+          if [ -n "${SDK_PREFIX:-}" ]; then
+            feed_ref=master
+            base_ref=main
+          else
+            feed_ref="openwrt-$(echo "$SDK_NAME" | sed -n 's/^openwrt-sdk-\([0-9]*\.[0-9]*\)\..*/\1/p')"
+            if [ -z "$feed_ref" ] || [ "$feed_ref" = "openwrt-" ]; then
+              echo "cannot derive the feed branch from SDK_NAME='$SDK_NAME'" >&2
+              exit 1
+            fi
+            base_ref="$feed_ref"
+          fi
+          echo "using feeds: base=$base_ref packages=$feed_ref luci=$feed_ref routing=$feed_ref"
+          echo "src-git base https://github.com/openwrt/openwrt.git;$base_ref" > feeds.conf
+          echo "src-git packages https://github.com/openwrt/packages.git;$feed_ref" >> feeds.conf
+          echo "src-git luci https://github.com/openwrt/luci.git;$feed_ref" >> feeds.conf
+          echo "src-git routing https://git.openwrt.org/feed/routing.git;$feed_ref"  >> feeds.conf
           ./scripts/feeds update -a
           ./scripts/feeds install -a
           cd ..
