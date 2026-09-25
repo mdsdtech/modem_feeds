@@ -68,7 +68,7 @@ jobs:
         fi
 
         case "${GITHUB_REF#refs/heads/}:$version" in
-          main:*-[0-9a-zA-Z]*) ;;
+          main:*[_-][0-9a-zA-Z]*) ;;
           stable:[0-9]*.[0-9]*.[0-9]*) ;;
           *)
             echo "QMODEM_VERSION does not match its release branch: ${GITHUB_REF#refs/heads/}:$version" >&2
@@ -160,7 +160,7 @@ jobs:
             "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
           tag_commit="$(git rev-list -n 1 "refs/tags/${GITHUB_REF_NAME}")"
           case "${GITHUB_REF_NAME}" in
-            *-rc.*|*-beta.*)
+            *-rc.*|*-beta.*|*_rc*|*_beta*)
               git merge-base --is-ancestor "$tag_commit" origin/main || {
                 echo "pre-release tags must point to main" >&2
                 exit 1
@@ -179,7 +179,6 @@ jobs:
           esac
 
       - name: Checkout
-        if: 
         uses: actions/checkout@v4
         with:
           path: 'qmodem'
@@ -202,7 +201,6 @@ jobs:
     name: Build QModem
     needs: [job_prepare]
     if: ${{ always() && needs.job_prepare.result == 'success' }}
-    continue-on-error: true
     strategy:
       matrix:
         build_arch: ['arm64_ipk',"arm64_apk","x64_apk","x64_ipk","mmips_ipk","mmips_apk" ]
@@ -257,7 +255,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: sdk
-          key: openwrt-sdk-${{ matrix.build_arch }}-${{ env.SDK_NAME }}${{ steps.resolve-sdk.outputs.sdk_name }}
+          key: openwrt-sdk-${{ matrix.build_arch }}-${{ env.SDK_NAME }}${{ steps.resolve-sdk.outputs.sdk_name }}-${{ github.sha }}
 
       - name: Initialization environment
         if: steps.cache-sdk.outputs.cache-hit != 'true'
@@ -275,10 +273,27 @@ jobs:
             mkdir sdk && tar -xvf $file_name -C ./sdk --strip-components=1
           fi
           cd sdk
-          echo "src-git base https://github.com/openwrt/openwrt.git;main" > feeds.conf
-          echo "src-git packages https://github.com/openwrt/packages.git;master" >> feeds.conf
-          echo "src-git luci https://github.com/openwrt/luci.git;master" >> feeds.conf
-          echo "src-git routing https://git.openwrt.org/feed/routing.git;master"  >> feeds.conf
+          # Feeds must come from the same OpenWrt generation the SDK was built
+          # from. The 23.05 release SDK ships CMake 3.26, while current luci
+          # master requires CMake 3.31, so feeding master into a release SDK
+          # breaks packages such as rpcd-mod-luci. Release SDKs therefore track
+          # their own release branch; snapshot SDKs keep the development feeds.
+          if [ -n "${SDK_PREFIX:-}" ]; then
+            feed_ref=master
+            base_ref=main
+          else
+            feed_ref="openwrt-$(echo "$SDK_NAME" | sed -n 's/^openwrt-sdk-\([0-9]*\.[0-9]*\)\..*/\1/p')"
+            if [ -z "$feed_ref" ] || [ "$feed_ref" = "openwrt-" ]; then
+              echo "cannot derive the feed branch from SDK_NAME='$SDK_NAME'" >&2
+              exit 1
+            fi
+            base_ref="$feed_ref"
+          fi
+          echo "using feeds: base=$base_ref packages=$feed_ref luci=$feed_ref routing=$feed_ref"
+          echo "src-git base https://github.com/openwrt/openwrt.git;$base_ref" > feeds.conf
+          echo "src-git packages https://github.com/openwrt/packages.git;$feed_ref" >> feeds.conf
+          echo "src-git luci https://github.com/openwrt/luci.git;$feed_ref" >> feeds.conf
+          echo "src-git routing https://git.openwrt.org/feed/routing.git;$feed_ref"  >> feeds.conf
           ./scripts/feeds update -a
           ./scripts/feeds install -a
           cd ..
@@ -286,6 +301,7 @@ jobs:
           cd sdk
           ./scripts/feeds update qmodem
           ./scripts/feeds install -a -p qmodem
+          rm -rf feeds/base/package/kernel/gpio-button-hotplug
           echo "CONFIG_ALL_NONSHARED=n" > .config
           echo "CONFIG_ALL_KMODS=n" >> .config
           echo "CONFIG_ALL=n" >> .config
@@ -294,25 +310,44 @@ jobs:
           cat ../qmodem/.github/workflows/openwrt_package.config >> .config
           make defconfig
           make clean
-          make download -j$(nproc) || true
+          # make clean may regenerate package selections; enforce the
+          # unavailable legacy GPIO module exclusion immediately before build.
+          sed -i '/^CONFIG_PACKAGE_gpio-button-hotplug=/d' .config
+          echo 'CONFIG_PACKAGE_gpio-button-hotplug=n' >> .config
+          sed -i '/^CONFIG_PACKAGE_libopenssl=/d;/^CONFIG_PACKAGE_openssl-util=/d' .config
+          echo 'CONFIG_PACKAGE_libopenssl=n' >> .config
+          echo 'CONFIG_PACKAGE_openssl-util=n' >> .config
 
       - name: Compile QModem
         id: compile
         run: |
+          set -euo pipefail
           cd sdk
           ./scripts/feeds update qmodem
           ./scripts/feeds install -a -p qmodem
+          rm -rf feeds/base/package/kernel/gpio-button-hotplug
           generic_package=$(cat ../qmodem/.github/workflows/qmodem_package_generic)
           arch_package=$(cat ../qmodem/.github/workflows/qmodem_package_arch)
           for package in $generic_package; do
-            make package/$package/compile -j$(nproc) || true
+            make package/$package/compile -j$(nproc)
           done
           for package in $arch_package; do
-            make package/$package/compile -j$(nproc) || true
+            make package/$package/compile -j$(nproc)
           done
-          ls bin/packages/${{ env.SDK_ARCH }}/qmodem/
+          package_dir="bin/packages/${{ env.SDK_ARCH }}/qmodem"
+          required_packages=(
+            qmodem qmodem-smsd sms-forwarder-next
+            luci-app-qmodem-next luci-i18n-qmodem-next-zh-cn
+          )
+          for package in "${required_packages[@]}"; do
+            compgen -G "$package_dir/${package}[-_]*" >/dev/null || {
+              echo "missing required release package: $package" >&2
+              exit 1
+            }
+          done
+          ls "$package_dir"
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "FIRMWARE=$(pwd)/bin/packages/${{ env.SDK_ARCH }}/qmodem/" >> $GITHUB_ENV
+          echo "FIRMWARE=$(pwd)/$package_dir/" >> $GITHUB_ENV
 
       - name: Upload QModem
         if: ${{ steps.compile.outputs.status == 'success' }}
@@ -326,14 +361,14 @@ jobs:
     name: Release Artifacts
     needs: [job_build_qmodem, job_prepare]
     runs-on: ubuntu-latest
-    # A tag push is the authoritative release signal. Keep this job alive
-    # when a matrix leg is allowed to fail so successful artifacts still get
-    # published and the failure remains visible in the run summary.
-    if: ${{ always() && startsWith(github.ref, 'refs/tags/v') && needs.job_prepare.result == 'success' }}
+    # job_prepare recognizes both direct tag pushes and tags created by
+    # job_auto_tag during a stable branch run.
+    if: ${{ always() && needs.job_prepare.result == 'success' && needs.job_build_qmodem.result == 'success' && needs.job_prepare.outputs.push_type == 'tag' }}
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: QModem-*
           path: artifacts
         
       - name: Download Release Note
@@ -356,10 +391,10 @@ jobs:
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2.2.2
-        if: ${{ always() && startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ always() && needs.job_prepare.outputs.push_type == 'tag' }}
         with:
           body_path: release_note/release_note.md
           generate_release_notes: true
           tag_name: ${{ needs.job_prepare.outputs.tag_name }}
-          prerelease: ${{ contains(needs.job_prepare.outputs.tag_name, '-beta') || contains(needs.job_prepare.outputs.tag_name, '-rc') }}
+          prerelease: ${{ contains(needs.job_prepare.outputs.tag_name, '-beta') || contains(needs.job_prepare.outputs.tag_name, '-rc') || contains(needs.job_prepare.outputs.tag_name, '_beta') || contains(needs.job_prepare.outputs.tag_name, '_rc') }}
           files: releases/*
