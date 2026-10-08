@@ -57,6 +57,7 @@ struct port_rule {
 	int has_rule;
 	int option_driver;
 	struct str_list include;
+	char voice_pcm_interface[32];
 };
 
 struct modem_profile {
@@ -85,6 +86,8 @@ struct scan_result {
 	char modem_path[256];
 	char vid[16];
 	char pid[16];
+	char voice_pcm_port[160];
+	char voice_pcm_interface[32];
 	int option_driver;
 };
 
@@ -507,6 +510,8 @@ static int load_port_rule(const char *vid, const char *pid, struct port_rule *ru
 		return 0;
 	rule->has_rule = 1;
 	rule->option_driver = json_get_int_default(obj, "option_driver", 0);
+	snprintf(rule->voice_pcm_interface, sizeof(rule->voice_pcm_interface), "%s",
+		json_get_string_default(obj, "voice_pcm_interface", ""));
 	if (json_get_obj(obj, "include", &include) && json_object_is_type(include, json_type_array)) {
 		int n = json_object_array_length(include);
 		for (int i = 0; i < n; i++) {
@@ -579,15 +584,37 @@ static void scan_usb_slot(const char *slot, struct scan_result *res)
 		suffix = strrchr(de->d_name, ':');
 		if (suffix)
 			snprintf(if_port, sizeof(if_port), "%s", suffix + 1);
-		if (!interface_allowed(&rule, if_port)) {
-			log_msg(LOG_L_DEBUG, "skip usb %s interface %s by modem_port_rule", slot, if_port);
-			continue;
-		}
 		snprintf(driver_path, sizeof(driver_path), "%s/%s/driver", slot_path, de->d_name);
 		if (!path_exists(driver_path) || readlink_basename(driver_path, driver, sizeof(driver)) < 0)
 			continue;
 
 		snprintf(path, sizeof(path), "%s/%s", slot_path, de->d_name);
+		if (rule.voice_pcm_interface[0] &&
+		    !strcmp(if_port, rule.voice_pcm_interface) &&
+		    (!strcmp(driver, "option") || !strcmp(driver, "cdc_acm") ||
+		     !strcmp(driver, "qcserial") || !strcmp(driver, "usbserial_generic") ||
+		     !strcmp(driver, "usbserial"))) {
+			struct str_list ttys;
+			sl_init(&ttys);
+			list_child_matching(path, "ttyUSB", &ttys);
+			list_child_matching(path, "ttyACM", &ttys);
+			if (ttys.len == 1) {
+				snprintf(res->voice_pcm_port, sizeof(res->voice_pcm_port),
+					"/dev/%s", ttys.items[0]);
+				snprintf(res->voice_pcm_interface,
+					sizeof(res->voice_pcm_interface), "%s", if_port);
+			} else {
+				log_msg(LOG_L_WARN,
+					"usb %s voice PCM interface %s has %zu tty devices",
+					slot, if_port, ttys.len);
+			}
+			sl_free(&ttys);
+			continue;
+		}
+		if (!interface_allowed(&rule, if_port)) {
+			log_msg(LOG_L_DEBUG, "skip usb %s interface %s by modem_port_rule", slot, if_port);
+			continue;
+		}
 		if (!strcmp(driver, "option") || !strcmp(driver, "cdc_acm") ||
 		    !strcmp(driver, "qcserial") || !strcmp(driver, "usbserial_generic") ||
 		    !strcmp(driver, "usbserial")) {
@@ -874,7 +901,10 @@ static void normalize_model_name(char *name, size_t len)
 	else if (strstr(lower, "fm190w-gl")) snprintf(name, len, "fm190w-gl");
 	else if (strstr(lower, "rm500u-ea")) snprintf(name, len, "rm500u-ea");
 	else if (strstr(lower, "mv31-w") || strstr(lower, "t99w175")) snprintf(name, len, "t99w175");
+	else if (strstr(lower, "mv32-w-a")) snprintf(name, len, "mv32-w-a");
+	else if (strstr(lower, "mv32-w")) snprintf(name, len, "mv32-w-b");
 	else if (strstr(lower, "t99w373")) snprintf(name, len, "t99w373");
+	else if (strstr(lower, "t99w368")) snprintf(name, len, "t99w368");
 	else if (strstr(lower, "dp25-42843-47")) snprintf(name, len, "t99w640");
 	else if (strstr(lower, "sim8380g")) snprintf(name, len, "SIM8380G-M2");
 	else if (strstr(lower, "rg200u-cn")) snprintf(name, len, "rg200u-cn");
@@ -1079,6 +1109,8 @@ static int add_modem(const char *slot, const char *slot_type)
 		snprintf(key, sizeof(key), "qmodem.%s.tty_devices", section); uci_del(key);
 		snprintf(key, sizeof(key), "qmodem.%s.net_devices", section); uci_del(key);
 		snprintf(key, sizeof(key), "qmodem.%s.ports", section); uci_del(key);
+		snprintf(key, sizeof(key), "qmodem.%s.voice_pcm_port", section); uci_del(key);
+		snprintf(key, sizeof(key), "qmodem.%s.voice_pcm_interface", section); uci_del(key);
 		snprintf(key, sizeof(key), "qmodem.%s.state", section); uci_set(key, "enabled");
 	} else {
 		char modem_count_s[32] = "", metric[32];
@@ -1092,13 +1124,14 @@ static int add_modem(const char *slot, const char *slot_type)
 		snprintf(modem_count_s, sizeof(modem_count_s), "%d", modem_count);
 		uci_set("qmodem.main.modem_count", modem_count_s);
 		snprintf(key, sizeof(key), "qmodem.%s", section); uci_set(key, "modem-device");
-		if (default_alias[0]) { snprintf(key, sizeof(key), "qmodem.%s.alias", section); uci_set(key, default_alias); }
+		if (default_alias[0] && strcmp(default_alias, "-")) { snprintf(key, sizeof(key), "qmodem.%s.alias", section); uci_set(key, default_alias); }
 		snprintf(metric, sizeof(metric), "%d", modem_count + 10);
 		if (default_metric[0])
 			snprintf(metric, sizeof(metric), "%s", default_metric);
 		snprintf(key, sizeof(key), "qmodem.%s.path", section); uci_set(key, res.modem_path);
 		snprintf(key, sizeof(key), "qmodem.%s.data_interface", section); uci_set(key, slot_type);
 		snprintf(key, sizeof(key), "qmodem.%s.enable_dial", section); uci_set(key, "1");
+		snprintf(key, sizeof(key), "qmodem.%s.use_ubus", section); uci_set(key, "1");
 		snprintf(key, sizeof(key), "qmodem.%s.soft_reboot", section); uci_set(key, "1");
 		snprintf(key, sizeof(key), "qmodem.%s.extend_prefix", section); uci_set(key, "1");
 		snprintf(key, sizeof(key), "qmodem.%s.pdp_type", section); uci_set(key, "ipv4v6");
@@ -1128,6 +1161,12 @@ static int add_modem(const char *slot, const char *slot_type)
 	for (size_t i = 0; i < res.at_ports.len; i++) {
 		snprintf(key, sizeof(key), "qmodem.%s.ports", section);
 		uci_add_list(key, res.at_ports.items[i]);
+	}
+	if (res.voice_pcm_port[0]) {
+		snprintf(key, sizeof(key), "qmodem.%s.voice_pcm_port", section);
+		uci_set(key, res.voice_pcm_port);
+		snprintf(key, sizeof(key), "qmodem.%s.voice_pcm_interface", section);
+		uci_set(key, res.voice_pcm_interface);
 	}
 	if (res.option_driver) {
 		snprintf(key, sizeof(key), "qmodem.%s.option_driver", section);

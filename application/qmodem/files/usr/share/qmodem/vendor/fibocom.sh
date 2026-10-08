@@ -25,6 +25,18 @@ fibocom_is_uint()
     esac
 }
 
+fibocom_uses_empty_gtact_fields()
+{
+    local model="${QMODEM_TESTCASE_MODEL:-}"
+
+    [ "$platform" = "qualcomm" ] || return 1
+    [ -z "$model" ] && model=$(uci -q get "qmodem.${config_section}.name" 2>/dev/null)
+    case "$(echo "$model" | tr '[:upper:]' '[:lower:]')" in
+        fm150|fm150-*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
 fibocom_hex_to_dec()
 {
     local value=$(echo "$1" | tr -d '\r" ')
@@ -334,6 +346,33 @@ fibocom_gtact_params()
     else
         echo "${network_prefer_num},,,$bands_str"
     fi
+}
+
+fibocom_gtact_lock_params()
+{
+    local network_prefer_num bands_str
+
+    if [ "$platform" = "mediatek" ] && { [ "$band_class" = "LTE" ] || [ "$band_class" = "NR" ]; }; then
+        umts_bands=""
+        [ -n "$lte_bands" ] || lte_bands="$ALL_LTE_CODES"
+        [ -n "$nr_bands" ] || nr_bands="$ALL_NR_CODES"
+        bands_str=$(fibocom_normalize_band_list "$lte_bands,$nr_bands")
+        echo "17,6,6,$bands_str"
+        return
+    fi
+
+    if fibocom_uses_empty_gtact_fields && { [ "$band_class" = "LTE" ] || [ "$band_class" = "NR" ]; }; then
+        umts_bands=""
+        [ -n "$lte_bands" ] || lte_bands="$ALL_LTE_CODES"
+        [ -n "$nr_bands" ] || nr_bands="$ALL_NR_CODES"
+        bands_str=$(fibocom_normalize_band_list "$lte_bands,$nr_bands")
+        echo "17,,,$bands_str"
+        return
+    fi
+
+    bands_str=$(fibocom_normalize_band_list "$umts_bands,$lte_bands,$nr_bands")
+    network_prefer_num=$(fibocom_gtact_network_prefer_from_bands)
+    fibocom_gtact_params "$network_prefer_num" "$bands_str"
 }
 
 #获取拨号模式
@@ -757,6 +796,19 @@ base_info()
 # $1:SIM卡状态标志
 
 
+fibocom_get_carrier()
+{
+    local carrier
+
+    case "$platform" in
+        "mediatek")
+            carrier=$(cmd_gtcurcar_query "$at_port" | awk -F'"' '/^\+GTCURCAR:/ {print $2; exit}')
+            ;;
+    esac
+    [ -n "$carrier" ] || carrier=$(cmd_cops_query "$at_port" | grep "+COPS" | awk -F'"' '{print $2}')
+    echo "$carrier"
+}
+
 #SIM卡信息
 sim_info()
 {
@@ -780,7 +832,7 @@ sim_info()
     fi
 
     #ISP（互联网服务提供商）
-    isp=$(cmd_cops_query "$at_port" | grep "+COPS" | awk -F'"' '{print $2}')
+    isp=$(fibocom_get_carrier)
     # if [ "$isp" = "CHN-CMCC" ] || [ "$isp" = "CMCC" ]|| [ "$isp" = "46000" ]; then
     #     isp="中国移动"
     # elif [ "$isp" = "CHN-UNICOM" ] || [ "$isp" = "UNICOM" ] || [ "$isp" = "46001" ]; then
@@ -1066,7 +1118,7 @@ set_lockband()
             set_lockband_nr
             ;;
         "mediatek")
-            set_lockband_nr_mediatek
+            set_lockband_nr
             ;;
         "lte")
             set_lockband_lte
@@ -1098,8 +1150,6 @@ set_lockband_nr()
 {
     m_debug "Fibocom set lockband info nr"
 
-    local network_prefer_num bands_str
-
     get_lockband_config_res=$(cmd_gtact_query "$at_port" | grep "+GTACT:" | head -n1)
     get_available_band_res=$(cmd_gtact_list_query "$at_port" | grep "+GTACT:" | head -n1)
     fibocom_gtact_load_available_bands "$get_available_band_res"
@@ -1123,12 +1173,10 @@ set_lockband_nr()
             ;;
     esac
 
-    bands_str=$(fibocom_normalize_band_list "$umts_bands,$lte_bands,$nr_bands")
-    network_prefer_num=$(fibocom_gtact_network_prefer_from_bands)
-
-    gtact_params=$(fibocom_gtact_params "$network_prefer_num" "$bands_str")
+    gtact_params=$(fibocom_gtact_lock_params)
 
     res=$(cmd_gtact_set "$at_port" "$gtact_params")
+    set_lockband_command="AT+GTACT=$gtact_params"
 }
 
 set_lockband_lte()
