@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <json-c/json.h>
 #include <pthread.h>
 #include <signal.h>
@@ -14,6 +15,7 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
@@ -50,6 +52,7 @@ struct event {
 	char key[256];
 	time_t not_before;
 	int attempts;
+	unsigned long generation;
 	struct event *next;
 };
 
@@ -113,6 +116,41 @@ struct daemon_state {
 
 static struct daemon_state g;
 static pthread_mutex_t uci_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/* Resource identity is the stable UCI slot section, independent of event type. */
+struct slot_epoch { char section[128]; unsigned long generation; struct slot_epoch *next; };
+static struct slot_epoch *epochs;
+static struct str_list active_resources;
+static __thread struct event *current_event;
+static int config_fd = -1;
+static void log_msg(enum log_level level, const char *fmt, ...);
+static void config_lock(void) {
+    pthread_mutex_lock(&uci_lock);
+    mkdir("/var/lock", 0755);
+    config_fd = open("/var/lock/qmodem-config.lock", O_CREAT|O_RDWR|O_CLOEXEC, 0600);
+    if (config_fd < 0 || flock(config_fd, LOCK_EX)) {
+        log_msg(LOG_L_ERR, "cannot acquire config transaction lock");
+        abort();
+    }
+}
+static void config_unlock(void) {
+    flock(config_fd, LOCK_UN); close(config_fd); config_fd = -1;
+    pthread_mutex_unlock(&uci_lock);
+}
+static unsigned long *slot_generation(const char *section) {
+    struct slot_epoch *p;
+    for (p=epochs; p; p=p->next) if (!strcmp(p->section, section)) return &p->generation;
+    p=calloc(1,sizeof(*p));
+    if (!p) abort();
+    snprintf(p->section,sizeof(p->section),"%s",section);
+    p->next=epochs; epochs=p;
+    return &p->generation;
+}
+static int event_current(void) {
+    return !current_event || current_event->generation == *slot_generation(current_event->section);
+}
+static int enqueue_event(enum event_type, const char *, const char *, int);
+static void log_msg(enum log_level level, const char *fmt, ...);
 
 static void sl_init(struct str_list *l)
 {
@@ -655,13 +693,62 @@ static void scan_associated_usb(const char *pcie_slot, struct scan_result *res)
 	}
 }
 
+/* Resolve WWAN ports by ancestry: controller and WWAN indices are independent. */
+#ifndef QMODEM_SYSFS_ROOT
+#define QMODEM_SYSFS_ROOT "/sys"
+#endif
+
+static int pcie_owned_path(const char *slot_path, const char *path)
+{
+    char slot_real[PATH_MAX], real[PATH_MAX];
+    if (!realpath(slot_path, slot_real) || !realpath(path, real))
+        return 0;
+    size_t n = strlen(slot_real);
+    return !strncmp(real, slot_real, n) && real[n] == '/';
+}
+
+static void scan_pcie_wwan(const char *slot_path, struct scan_result *res)
+{
+    const char *classes[] = { QMODEM_SYSFS_ROOT "/class/net", QMODEM_SYSFS_ROOT "/class/wwan" };
+    for (size_t i = 0; i < sizeof(classes) / sizeof(classes[0]); i++) {
+        DIR *d = opendir(classes[i]);
+        struct dirent *de;
+        if (!d) continue;
+        while ((de = readdir(d))) {
+            char path[PATH_MAX], real[PATH_MAX];
+            if (de->d_name[0] == '.') continue;
+            snprintf(path, sizeof(path), "%s/%s", classes[i], de->d_name);
+            if (!pcie_owned_path(slot_path, path) || !realpath(path, real)) continue;
+            if (i == 0) {
+                /* IP_SW0 is an auxiliary data path, not a second cellular NIC. */
+                if (strstr(real, "_IP_SW")) continue;
+                sl_add(&res->net_devices, de->d_name);
+            } else {
+                char type[32] = "", dev[160];
+                size_t n = strlen(path);
+                if (n + sizeof("/type") > sizeof(path)) continue;
+                memcpy(path + n, "/type", sizeof("/type"));
+                FILE *fp = fopen(path, "r");
+                if (!fp) continue;
+                if (fgets(type, sizeof(type), fp) && !strcmp(type, "AT\n")) {
+                    snprintf(dev, sizeof(dev), "/dev/%.127s", de->d_name);
+                    sl_add(&res->at_ports, dev);
+                    sl_add(&res->pcie_at_ports, dev);
+                }
+                fclose(fp);
+            }
+        }
+        closedir(d);
+    }
+}
+
 static void scan_pcie_slot(const char *slot, struct scan_result *res)
 {
 	char slot_path[256], path[512], short_slot[128];
 	DIR *d;
 	struct dirent *de;
 
-	snprintf(slot_path, sizeof(slot_path), "/sys/bus/pci/devices/%s", slot);
+	snprintf(slot_path, sizeof(slot_path), QMODEM_SYSFS_ROOT "/bus/pci/devices/%s", slot);
 	if (!is_dir(slot_path))
 		return;
 	snprintf(res->modem_path, sizeof(res->modem_path), "/sys/bus/pci/devices/%s/", slot);
@@ -707,46 +794,7 @@ static void scan_pcie_slot(const char *slot, struct scan_result *res)
 		closedir(d);
 	}
 
-	snprintf(path, sizeof(path), "%s/mhi0/wwan/wwan0", slot_path);
-	if (is_dir(path)) {
-		struct str_list ats;
-		sl_init(&ats);
-		list_child_matching(path, "wwan0at", &ats);
-		for (size_t i = 0; i < ats.len; i++) {
-			char dev[160];
-			snprintf(dev, sizeof(dev), "/dev/%s", ats.items[i]);
-			sl_add(&res->at_ports, dev);
-			sl_add(&res->pcie_at_ports, dev);
-		}
-		sl_free(&ats);
-	}
-
-	snprintf(path, sizeof(path), "%s/wwan", slot_path);
-	if (is_dir(path)) {
-		DIR *wd = opendir(path);
-		if (wd) {
-			while ((de = readdir(wd))) {
-				char wwan_path[512];
-				if (strncmp(de->d_name, "wwan", 4))
-					continue;
-				sl_add(&res->net_devices, de->d_name);
-				snprintf(wwan_path, sizeof(wwan_path), "%s/%s", path, de->d_name);
-				struct str_list ats;
-				sl_init(&ats);
-				list_child_matching(wwan_path, de->d_name, &ats);
-				for (size_t i = 0; i < ats.len; i++) {
-					if (strstr(ats.items[i], "at")) {
-						char dev[160];
-						snprintf(dev, sizeof(dev), "/dev/%s", ats.items[i]);
-						sl_add(&res->at_ports, dev);
-						sl_add(&res->pcie_at_ports, dev);
-					}
-				}
-				sl_free(&ats);
-			}
-			closedir(wd);
-		}
-	}
+	scan_pcie_wwan(slot_path, res);
 }
 
 static int at_command(const char *port, const char *cmd, int fast, int timeout, char *out, size_t out_len)
@@ -837,12 +885,6 @@ static void *probe_port_thread(void *arg)
 	ctx->ok = 0;
 	if (!path_exists(ctx->port))
 		return NULL;
-	{
-		char json[256];
-		char *argv[] = { "ubus", "call", "at-daemon", "close", json, NULL };
-		snprintf(json, sizeof(json), "{ \"at_port\": \"%s\" }", ctx->port);
-		run_exec(argv, 2);
-	}
 	if (at_command(ctx->port, "ATI", 1, g.at_timeout_fast, res, sizeof(res)) == 0 &&
 	    (strstr(res, "OK") || strstr(res, "ATI")))
 		ctx->ok = 1;
@@ -1092,7 +1134,13 @@ static int add_modem(const char *slot, const char *slot_type)
 	}
 
 	join_list(&res.net_devices, net_join, sizeof(net_join));
-	pthread_mutex_lock(&uci_lock);
+    pthread_mutex_lock(&g.queue_lock);
+    if (!event_current()) {
+        pthread_mutex_unlock(&g.queue_lock);
+        sl_free(&profile.modes);
+        goto out_success;
+    }
+	config_lock();
 	snprintf(key, sizeof(key), "qmodem.%s", section);
 	existed = !uci_get(key, existing, sizeof(existing)) && existing[0];
 	if (existed) {
@@ -1173,7 +1221,8 @@ static int add_modem(const char *slot, const char *slot_type)
 		uci_set(key, "1");
 	}
 	uci_commit("qmodem");
-	pthread_mutex_unlock(&uci_lock);
+	config_unlock();
+    pthread_mutex_unlock(&g.queue_lock);
 
 	{
 		char rundir[256];
@@ -1211,7 +1260,9 @@ static void remove_modem(const char *section)
 	snprintf(key, sizeof(key), "qmodem.%s", section);
 	if (uci_get(key, existing, sizeof(existing)) || !existing[0])
 		return;
-	pthread_mutex_lock(&uci_lock);
+	{ char *stop[] = { "/etc/init.d/qmodem_network", "hang", (char *)section, NULL };
+      if (run_exec(stop, 60)) { log_msg(LOG_L_ERR,"refuse remove: could not stop section=%s",section); return; } }
+	config_lock();
 	uci_get("qmodem.main.modem_count", count_s, sizeof(count_s));
 	if (count_s[0])
 		count = atoi(count_s);
@@ -1220,13 +1271,10 @@ static void remove_modem(const char *section)
 	snprintf(count_s, sizeof(count_s), "%d", count);
 	uci_set("qmodem.main.modem_count", count_s);
 	snprintf(key, sizeof(key), "qmodem.%s", section); uci_del(key);
-	snprintf(key, sizeof(key), "network.%s", section); uci_del(key);
-	snprintf(key, sizeof(key), "network.%sv6", section); uci_del(key);
-	snprintf(key, sizeof(key), "dhcp.%s", section); uci_del(key);
 	uci_commit("network");
 	uci_commit("dhcp");
 	uci_commit("qmodem");
-	pthread_mutex_unlock(&uci_lock);
+	config_unlock();
 	log_msg(LOG_L_INFO, "removed modem section=%s", section);
 }
 
@@ -1235,13 +1283,14 @@ static void disable_slot(const char *slot)
 	char section[128], key[256];
 	char *argv_reorder[] = { "uci", "-q", "reorder", key, NULL };
 	section_from_slot(slot, section, sizeof(section));
-	pthread_mutex_lock(&uci_lock);
+	config_lock();
 	snprintf(key, sizeof(key), "qmodem.%s=1", section);
 	run_exec(argv_reorder, 3);
 	snprintf(key, sizeof(key), "qmodem.%s.state", section);
 	uci_set(key, "disabled");
 	uci_commit("qmodem");
-	pthread_mutex_unlock(&uci_lock);
+	config_unlock();
+	{ char *stop[] = { "/etc/init.d/qmodem_network", "hang", section, NULL }; run_exec(stop, 60); }
 	log_msg(LOG_L_INFO, "disabled slot=%s section=%s", slot, section);
 }
 
@@ -1277,7 +1326,7 @@ static void scan_usb_all(void)
 	}
 	closedir(d);
 	for (size_t i = 0; i < slots.len; i++)
-		add_modem(slots.items[i], "usb");
+		enqueue_event(EV_ADD, slots.items[i], "usb", 0);
 	sl_free(&slots);
 }
 
@@ -1303,7 +1352,8 @@ static void scan_pcie_all(void)
 		char dev_path[512], real[512], tmp[512], *save = NULL, *tok, last[128] = "";
 		if (de->d_name[0] == '.')
 			continue;
-		if (strncmp(de->d_name, "rmnet", 5) && strncmp(de->d_name, "wwan", 4))
+		if (strncmp(de->d_name, "rmnet", 5) && strncmp(de->d_name, "wwan", 4) &&
+            strncmp(de->d_name, "mhi_hwip", 8))
 			continue;
 		snprintf(dev_path, sizeof(dev_path), "/sys/class/net/%s/device", de->d_name);
 		if (!realpath(dev_path, real))
@@ -1320,7 +1370,7 @@ static void scan_pcie_all(void)
 	}
 	closedir(d);
 	for (size_t i = 0; i < slots.len; i++)
-		add_modem(slots.items[i], "pcie");
+		enqueue_event(EV_ADD, slots.items[i], "pcie", 0);
 	sl_free(&slots);
 }
 
@@ -1366,8 +1416,41 @@ static void queue_remove_pending_add_for_slot(const char *slot)
 	}
 }
 
+/* An associated USB control function and its PCIe data endpoint are one modem. */
+static int associated_pcie_slot(const char *usb, char *owner, size_t len)
+{
+    char out[32768], *save=NULL, *line;
+    char *argv[]={ "uci", "-q", "show", "qmodem", NULL };
+    int found=0;
+    if (capture_exec(argv,out,sizeof(out),3)) return 0;
+    for (line=strtok_r(out,"\n",&save);line;line=strtok_r(NULL,"\n",&save)) {
+        char *p=strstr(line,".associated_usb=");
+        char key[256], section[128], value[160], type[32], slot[128];
+        if (!p || strncmp(line,"qmodem.",7)) continue;
+        snprintf(value,sizeof(value),"%s",p+16);
+        trim(value);
+        size_t n=strlen(value);
+        if (n>=2 && (value[0]=='\'' || value[0]=='"')) { memmove(value,value+1,n); value[n-2]=0; }
+        if (strcmp(value,usb)) continue;
+        *p=0; snprintf(section,sizeof(section),"%s",line+7);
+        snprintf(key,sizeof(key),"qmodem.%s.type",section); uci_get(key,type,sizeof(type));
+        if (strcmp(type,"pcie")) continue;
+        snprintf(key,sizeof(key),"qmodem.%s.slot",section); uci_get(key,slot,sizeof(slot));
+        if (!slot[0]) continue;
+        if (found && strcmp(owner,slot)) return -1;
+        snprintf(owner,len,"%s",slot); found=1;
+    }
+    return found;
+}
+
 static int enqueue_event_ex(enum event_type type, const char *arg, const char *slot_type, int delay_sec, int attempts)
 {
+    char owner[128]="";
+    if (type == EV_ADD || type == EV_DISABLE) {
+        int associated=associated_pcie_slot(arg,owner,sizeof(owner));
+        if (associated<0) { log_msg(LOG_L_ERR,"ambiguous associated USB slot=%s",arg); return -1; }
+        if (associated) { arg=owner; if (type==EV_ADD) slot_type="pcie"; }
+    }
 	struct event *e = calloc(1, sizeof(*e));
 	if (!e)
 		return -1;
@@ -1382,16 +1465,24 @@ static int enqueue_event_ex(enum event_type type, const char *arg, const char *s
 		delay_sec = 0;
 	e->not_before = time(NULL) + delay_sec;
 	e->attempts = attempts;
+    if (type == EV_ADD || type == EV_DISABLE) section_from_slot(arg, e->section, sizeof(e->section));
+    if (type == EV_SCAN) snprintf(e->section, sizeof(e->section), "scan:%.122s", arg ? arg : "all");
 	event_key(type, arg, slot_type, e->key, sizeof(e->key));
 
 	pthread_mutex_lock(&g.queue_lock);
 	if (type == EV_DISABLE)
 		queue_remove_pending_add_for_slot(arg);
-	if (queue_has_key(e->key) || (!attempts && sl_contains(&g.active_keys, e->key))) {
+	if (queue_has_key(e->key) || (!attempts && type != EV_ADD && sl_contains(&g.active_keys, e->key))) {
 		pthread_mutex_unlock(&g.queue_lock);
 		free(e);
 		return 1;
 	}
+    unsigned long *generation = slot_generation(e->section);
+    if (attempts && current_event && current_event->generation != *generation) {
+        pthread_mutex_unlock(&g.queue_lock); free(e); return 1;
+    }
+    if (!attempts) ++*generation;
+    e->generation = *generation;
 	if (!g.queue_head || e->not_before < g.queue_head->not_before) {
 		e->next = g.queue_head;
 		g.queue_head = e;
@@ -1408,8 +1499,8 @@ static int enqueue_event_ex(enum event_type type, const char *arg, const char *s
 	}
 	g.queue_len++;
 	pthread_cond_signal(&g.queue_cond);
-	pthread_mutex_unlock(&g.queue_lock);
 	log_msg(LOG_L_INFO, "queued %s delay=%d attempts=%d", e->key, delay_sec, attempts);
+	pthread_mutex_unlock(&g.queue_lock);
 	return 0;
 }
 
@@ -1433,18 +1524,21 @@ static struct event *dequeue_event(void)
 			return NULL;
 		}
 
-		e = g.queue_head;
 		now = time(NULL);
-		if (e->not_before <= now)
-			break;
-		ts.tv_sec = e->not_before;
-		ts.tv_nsec = 0;
-		pthread_cond_timedwait(&g.queue_cond, &g.queue_lock, &ts);
+        struct event *prev = NULL;
+        e = g.queue_head;
+        while (e && (e->not_before > now || sl_contains(&active_resources, e->section))) {
+            prev = e; e = e->next;
+        }
+        if (e) {
+            if (prev) prev->next = e->next; else g.queue_head = e->next;
+            if (g.queue_tail == e) g.queue_tail = prev;
+            break;
+        }
+        ts.tv_sec = now + 1; ts.tv_nsec = 0;
+        pthread_cond_timedwait(&g.queue_cond, &g.queue_lock, &ts);
 	}
-
-	g.queue_head = e->next;
-	if (!g.queue_head)
-		g.queue_tail = NULL;
+    sl_add(&active_resources, e->section);
 	g.queue_len--;
 	g.active_jobs++;
 	sl_add(&g.active_keys, e->key);
@@ -1453,21 +1547,24 @@ static struct event *dequeue_event(void)
 	return e;
 }
 
-static void finish_event_key(const char *key)
+static void finish_event_key(const struct event *event)
 {
-	pthread_mutex_lock(&g.queue_lock);
-	if (g.active_jobs > 0)
-		g.active_jobs--;
-	for (size_t i = 0; i < g.active_keys.len; i++) {
-		if (!strcmp(g.active_keys.items[i], key)) {
-			free(g.active_keys.items[i]);
-			memmove(&g.active_keys.items[i], &g.active_keys.items[i + 1],
-				(g.active_keys.len - i - 1) * sizeof(g.active_keys.items[0]));
-			g.active_keys.len--;
-			break;
-		}
-	}
-	pthread_mutex_unlock(&g.queue_lock);
+    pthread_mutex_lock(&g.queue_lock);
+    struct str_list *lists[] = { &active_resources, &g.active_keys };
+    const char *keys[] = { event->section, event->key };
+    for (size_t j=0;j<2;j++) {
+        struct str_list *list=lists[j];
+        for (size_t i=0;i<list->len;i++) {
+            if (!strcmp(list->items[i],keys[j])) {
+                free(list->items[i]);
+                memmove(&list->items[i], &list->items[i+1], (list->len-i-1)*sizeof(char *));
+                list->len--; break;
+            }
+        }
+    }
+    if (g.active_jobs>0) g.active_jobs--;
+    pthread_cond_broadcast(&g.queue_cond);
+    pthread_mutex_unlock(&g.queue_lock);
 }
 
 static void process_event(struct event *e)
@@ -1512,8 +1609,13 @@ static void *worker_thread(void *arg)
 		struct event *e = dequeue_event();
 		if (!e)
 			return NULL;
-		process_event(e);
-		finish_event_key(e->key);
+		current_event=e;
+        pthread_mutex_lock(&g.queue_lock);
+        int valid=event_current();
+        pthread_mutex_unlock(&g.queue_lock);
+        if (valid) process_event(e);
+        current_event=NULL;
+		finish_event_key(e);
 		free(e);
 	}
 }

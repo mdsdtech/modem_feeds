@@ -22,8 +22,10 @@ config_foreach() { :; }
 get_platform_suggest_pdp_index() { printf '1\n'; }
 get_driver() { printf 'qmi\n'; }
 update_sim_slot() { sim_slot=1; }
-find() { printf '/tmp/qmodem-test/net\n'; }
-ls() { printf 'wwan0\n'; }
+SCRIPT_DIR="$(mktemp -d)"
+trap 'rm -rf "$SCRIPT_DIR" "${hook_dir:-}"' EXIT INT TERM
+printf '#!/bin/sh\nprintf "wwan0\\n"\n' > "$SCRIPT_DIR/modem_netdev.sh"
+chmod +x "$SCRIPT_DIR/modem_netdev.sh"
 
 config_get()
 {
@@ -67,7 +69,6 @@ update_config
 [ "$bridge_enabled:$donot_nat" = '0:1' ]
 
 hook_dir="$(mktemp -d)"
-trap 'rm -rf "$hook_dir"' EXIT INT TERM
 cat > "$hook_dir/hook" <<'EOF'
 #!/bin/sh
 printf '%s\n' "$*" > "$QMODEM_BRIDGE_MANAGER_CALL"
@@ -96,9 +97,8 @@ set -e
 network_handlers="$(extract_function set_if)
 $(extract_function flush_if)"
 [ "$(printf '%s\n' "$network_handlers" | grep -cF '/etc/init.d/network restart')" -eq 2 ]
-if printf '%s\n' "$network_handlers" | grep -qF '/etc/init.d/network reload'; then
-	exit 1
-fi
+# Bridge topology still needs restart; ordinary modem cleanup now reloads.
+[ "$(printf '%s\n' "$network_handlers" | grep -cF '/etc/init.d/network reload')" -eq 1 ]
 [ "$(printf '%s\n' "$network_handlers" | grep -cF 'external_bridge_manager')" -ge 3 ]
 
 echo 'bridge passthrough tests passed'
